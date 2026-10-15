@@ -96,7 +96,7 @@ read_dir <- function(pattern) {
 }
 
 ais <- read_dir("^ais_") |>
-  transmute(lon = Lon, lat = Lat,
+  transmute(lon = round(Lon, 1), lat = round(Lat, 1),   # stable 0.1 deg keys (float noise)
             year  = as.integer(substr(`Time Range`, 1, 4)),
             month = as.integer(substr(`Time Range`, 6, 7)),
             geartype = geartype,
@@ -106,7 +106,7 @@ ais <- read_dir("^ais_") |>
   distinct(lon, lat, year, month, geartype, .keep_all = TRUE)
 
 sar <- read_dir("^sar_") |>
-  transmute(lon = Lon, lat = Lat,
+  transmute(lon = round(Lon, 1), lat = round(Lat, 1),   # stable 0.1 deg keys (float noise)
             year  = as.integer(substr(`Time Range`, 1, 4)),
             month = as.integer(substr(`Time Range`, 6, 7)),
             matched = grepl("_matched_", file),

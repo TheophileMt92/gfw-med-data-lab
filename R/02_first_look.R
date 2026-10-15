@@ -22,8 +22,8 @@ library(scales)
 dir.create("figures", showWarnings = FALSE)
 dir.create("outputs", showWarnings = FALSE)
 
-ais <- readRDS("data/processed/ais_med_monthly.rds")
-sar <- readRDS("data/processed/sar_med_monthly.rds")
+ais <- readRDS("data/processed/ais_med_monthly.rds") |> mutate(lon = round(lon, 1), lat = round(lat, 1))
+sar <- readRDS("data/processed/sar_med_monthly.rds") |> mutate(lon = round(lon, 1), lat = round(lat, 1))
 med <- st_read("data/processed/med_domain.gpkg", quiet = TRUE)
 
 # Keep only years present in both sources so comparisons are like-for-like
