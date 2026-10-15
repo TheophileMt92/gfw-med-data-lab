@@ -1,0 +1,284 @@
+---
+title: "Mediterranean fishing seen from space"
+subtitle: "A first look at AIS fishing effort and SAR vessel detections, 2017-2024. Pre-workshop analyses for the Global Fishing Watch Mediterranean Data Lab"
+author: "Théophile L. Mouton"
+date: today
+format:
+  html:
+    output-file: index.html
+    embed-resources: true
+    code-fold: true
+    code-summary: "Show code"
+    css: template/custom.css
+    include-before-body: template/header.html
+    include-after-body: template/footer.html
+    theme: none
+    toc: true
+    toc-depth: 2
+    number-sections: false
+    fig-align: center
+    fig-dpi: 150
+execute:
+  echo: true
+  message: false
+  warning: false
+---
+
+```{r setup}
+#| echo: false
+
+library(dplyr)
+library(tidyr)
+library(sf)
+library(ggplot2)
+library(patchwork)
+library(scales)
+library(knitr)
+
+pal_ocean <- c(deep = "#062d4a", mid = "#0d4f7a", surface = "#1a7fa8",
+               light = "#4eb8d4", foam = "#c8eaf4", accent = "#12726B",
+               alert = "#c0392b", sand = "#e4b363", grey = "#b0b7bf")
+
+theme_ocean <- function(base_size = 11) {
+  theme_minimal(base_size = base_size) +
+    theme(panel.grid.minor = element_blank(),
+          plot.title = element_text(face = "bold", colour = pal_ocean[["deep"]]),
+          plot.title.position = "plot",
+          legend.position = "bottom",
+          axis.title = element_text(colour = "grey30"))
+}
+
+fmt  <- function(x, acc = 1) comma(x, accuracy = acc)
+pct  <- function(x, acc = 1) percent(x, accuracy = acc)
+```
+
+```{r data}
+#| code-summary: "Load the gfwr extracts"
+
+# Produced by R/01_download_gfw.R (gfwr::gfw_ais_fishing_hours and
+# gfwr::gfw_sar_vessel_detections, 0.1 degree, monthly, 2017-2024)
+ais <- readRDS("data/processed/ais_med_monthly.rds")
+sar <- readRDS("data/processed/sar_med_monthly.rds")
+
+yrs <- sort(intersect(unique(ais$year), unique(sar$year)))
+ais <- filter(ais, year %in% yrs)
+sar <- filter(sar, year %in% yrs)
+n_years <- length(yrs)
+
+ais <- ais |>
+  mutate(gear = case_when(
+    geartype == "trawlers"          ~ "Trawlers",
+    grepl("longline", geartype)     ~ "Longlines",
+    grepl("purse_seine", geartype)  ~ "Purse seines",
+    TRUE                            ~ "Other / unknown"),
+    gear = factor(gear, c("Trawlers", "Purse seines", "Longlines", "Other / unknown")))
+
+land <- rnaturalearth::ne_countries(scale = "medium", returnclass = "sf") |>
+  st_make_valid() |>
+  st_crop(c(xmin = -6.5, xmax = 37, ymin = 29.5, ymax = 46.5))
+
+map_base <- list(
+  geom_sf(data = land, fill = "grey90", colour = "grey75", linewidth = 0.15, inherit.aes = FALSE),
+  coord_sf(xlim = c(-6, 36.5), ylim = c(30, 46), expand = FALSE),
+  theme_ocean(10),
+  theme(axis.title = element_blank(), legend.key.width = unit(14, "mm"),
+        legend.key.height = unit(3, "mm"))
+)
+
+# Annual summary
+summary_year <- ais |>
+  group_by(year) |>
+  summarise(ais_hours   = sum(fishing_hours),
+            trawl_share = sum(fishing_hours[gear == "Trawlers"]) / sum(fishing_hours),
+            cells       = n_distinct(paste(lon, lat))) |>
+  left_join(sar |>
+              group_by(year) |>
+              summarise(sar_det = sum(detections),
+                        dark_share = sum(detections[!matched]) / sum(detections)),
+            by = "year")
+
+# Cell-level layers
+ais_cell <- ais |>
+  group_by(lon, lat) |>
+  summarise(hours = sum(fishing_hours) / n_years, .groups = "drop")
+
+sar_cell <- sar |>
+  group_by(lon, lat) |>
+  summarise(total = sum(detections), unmatched = sum(detections[!matched]),
+            .groups = "drop") |>
+  mutate(dark_share = unmatched / total)
+
+cell <- full_join(ais_cell, sar_cell, by = c("lon", "lat")) |>
+  mutate(across(c(hours, total, unmatched), \(x) coalesce(x, 0)))
+
+# Key numbers for the text
+mean_hours  <- mean(summary_year$ais_hours)
+trawl_share <- sum(ais$fishing_hours[ais$gear == "Trawlers"]) / sum(ais$fishing_hours)
+top10_share <- ais_cell |> arrange(desc(hours)) |>
+  summarise(s = sum(head(hours, ceiling(n() * 0.10))) / sum(hours)) |> pull(s)
+dark_2017   <- summary_year$dark_share[summary_year$year == min(yrs)]
+dark_2021   <- summary_year$dark_share[summary_year$year == 2021]
+dark_last   <- summary_year$dark_share[summary_year$year == max(yrs)]
+```
+
+## Summary
+
+Between `r min(yrs)` and `r max(yrs)`, vessels broadcasting AIS logged on average **`r fmt(mean_hours / 1e6, 0.1)` million apparent fishing hours per year** in the Mediterranean. That total stayed roughly flat across the period. **Trawlers account for `r pct(trawl_share)`** of these hours, and **`r pct(top10_share)` of the effort falls in the busiest 10% of fished 0.1° cells**.
+
+AIS shows only part of the fleet. Sentinel-1 radar (SAR) detects vessels whether they broadcast or not, and **`r pct(dark_2017)` of SAR detections in `r min(yrs)` matched no AIS track**. Unmatched detections are concentrated along the North African coast, from Tunisia to Egypt, and in the eastern Aegean. That share fell to `r pct(dark_2021)` by 2021, before the change in satellite coverage in 2022 (see [Caveats](#caveats)).
+
+At the scale of 0.1° cells, AIS fishing effort and SAR detections are only moderately related. This mismatch is the starting point for the effort models planned for the data lab.
+
+```{r tbl-year}
+#| code-summary: "Annual summary table"
+#| tbl-cap: "Annual totals for the Mediterranean study area. SAR detections cover all vessel types."
+summary_year |>
+  transmute(Year = year,
+            `AIS fishing hours` = fmt(ais_hours),
+            `Trawler share` = pct(trawl_share),
+            `Fished cells (0.1°)` = fmt(cells),
+            `SAR detections` = fmt(sar_det),
+            `SAR unmatched to AIS` = pct(dark_share)) |>
+  kable(align = "lrrrrr")
+```
+
+## Data and approach
+
+All Global Fishing Watch (GFW) data were pulled with the [`gfwr`](https://globalfishingwatch.github.io/gfwr/) R package (v3 API) for an approximate Mediterranean outline matching the GFCM area. The outline excludes the Atlantic west of Gibraltar, the Bay of Biscay, the Sea of Marmara and the Black Sea. Requests were split by year and by western/eastern basin (cut at 15° E) to keep each API report small.
+
+- **AIS apparent fishing effort.** Source: `gfw_ais_fishing_hours()`, at 0.1° and monthly resolution, grouped by gear type. These are hours that GFW's model classifies as fishing, from vessels carrying AIS.
+- **SAR vessel detections.** Source: `gfw_sar_vessel_detections()`, at 0.1° and monthly resolution, requested separately for detections *matched* and *unmatched* to AIS (`filter_by = "matched='true'"` and `"matched='false'"`). Sentinel-1 radar detects vessels regardless of whether they broadcast AIS, but it misses most vessels under about 15 m, and these counts include all vessel types, not only fishing boats.
+
+The code is in `R/00_install.R` (install gfwr, check the token), `R/01_download_gfw.R` (cached downloads) and this report.
+
+## Where AIS-tracked fishing happens
+
+```{r fig-ais-map}
+#| fig-cap: "Mean annual AIS apparent fishing hours per 0.1° cell (log scale)."
+#| fig-width: 10
+#| fig-height: 5.2
+ggplot(filter(ais_cell, hours > 0)) +
+  geom_tile(aes(lon, lat, fill = hours), width = 0.1, height = 0.1) +
+  scale_fill_viridis_c(trans = "log10", option = "mako", direction = -1,
+                       labels = label_comma(), name = "Fishing hours per year") +
+  map_base +
+  labs(title = "AIS apparent fishing effort",
+       subtitle = sprintf("Mean per year, %d-%d", min(yrs), max(yrs)),
+       caption = "Source: Global Fishing Watch via gfwr")
+```
+
+Fishing effort follows the continental shelf. The densest areas are the Adriatic, the Strait of Sicily and the Tunisian shelf down to the Gulf of Gabès, and the coasts of the Gulf of Lion, Catalonia and Liguria. The deep basins have patchy, low-intensity effort, and large parts of the Algerian and Libyan offshore waters record no AIS fishing at all.
+
+## Seasonality and gear
+
+```{r fig-ais-ts}
+#| fig-cap: "Monthly AIS apparent fishing hours by gear group."
+#| fig-width: 10
+#| fig-height: 4.2
+ais |>
+  group_by(year, month, gear) |>
+  summarise(hours = sum(fishing_hours), .groups = "drop") |>
+  mutate(date = as.Date(sprintf("%d-%02d-01", year, month))) |>
+  ggplot(aes(date, hours / 1e3, fill = gear)) +
+  geom_area() +
+  scale_fill_manual(values = c("Trawlers" = pal_ocean[["deep"]],
+                               "Purse seines" = pal_ocean[["sand"]],
+                               "Longlines" = pal_ocean[["light"]],
+                               "Other / unknown" = pal_ocean[["grey"]])) +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  labs(x = NULL, y = "Thousand fishing hours", fill = NULL,
+       title = "AIS apparent fishing hours per month") +
+  theme_ocean()
+```
+
+The series has a strong annual cycle. Averaged over the period, effort is lowest in January-February, peaks in June-July, then drops sharply in August. The August drop fits the summer trawl closures that several countries apply, such as Italy's *fermo biologico*. Trawlers dominate year-round, and longlines and purse seines add a clear summer pulse. The unusually low March-April 2020 coincides with the first COVID-19 lockdowns.
+
+## Vessels the radar sees but AIS does not
+
+```{r fig-dark-map}
+#| fig-cap: "Share of SAR detections not matched to any AIS track, 2017-2024. Cells with at least 5 detections."
+#| fig-width: 10
+#| fig-height: 5.2
+ggplot(filter(sar_cell, total >= 5)) +
+  geom_tile(aes(lon, lat, fill = dark_share), width = 0.1, height = 0.1) +
+  scale_fill_viridis_c(option = "rocket", direction = -1, labels = label_percent(),
+                       limits = c(0, 1), name = "Unmatched to AIS") +
+  map_base +
+  labs(title = "Share of radar detections with no AIS",
+       subtitle = sprintf("Sentinel-1 SAR, %d-%d, all vessel types", min(yrs), max(yrs)),
+       caption = "SAR misses most vessels under ~15 m. Source: Global Fishing Watch via gfwr")
+```
+
+The Gibraltar-Suez shipping corridor shows up as a lighter band: it is dominated by large merchant vessels, almost all of which carry AIS. The highest unmatched shares, often above 75%, are along the coasts of Tunisia, Libya and Egypt, and in parts of the eastern Aegean and the Levant. On these coastal shelves the national fleets carry AIS less often and AIS reception is weaker, so AIS-based effort maps will understate activity most there.
+
+```{r fig-sar-ts}
+#| fig-cap: "Monthly SAR detections matched and unmatched to AIS. The dashed line marks the loss of Sentinel-1B (December 2021)."
+#| fig-width: 10
+#| fig-height: 3.8
+sar |>
+  group_by(year, month, matched) |>
+  summarise(det = sum(detections), .groups = "drop") |>
+  mutate(date = as.Date(sprintf("%d-%02d-01", year, month)),
+         type = ifelse(matched, "Matched to AIS", "Unmatched")) |>
+  ggplot(aes(date, det, colour = type)) +
+  geom_vline(xintercept = as.Date("2021-12-23"), linetype = "dashed", colour = "grey50") +
+  geom_line(linewidth = 0.7) +
+  scale_colour_manual(values = c("Matched to AIS" = pal_ocean[["mid"]],
+                                 "Unmatched" = pal_ocean[["alert"]])) +
+  scale_y_continuous(labels = label_comma()) +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  labs(x = NULL, y = "SAR detections", colour = NULL,
+       title = "SAR vessel detections per month") +
+  theme_ocean()
+```
+
+Unmatched detections outnumbered matched ones by about two to one until the end of 2021, after which both series drop. This drop is not a real decline in vessel numbers. The Sentinel-1B satellite failed in December 2021, which roughly halved radar revisits over the Mediterranean, so raw SAR counts before and after 2022 cannot be compared directly. The unmatched share had already been falling before that, from `r pct(dark_2017)` in `r min(yrs)` to `r pct(dark_2021)` in 2021. Trends should be estimated within each coverage period, or after normalising by the number of satellite overpasses.
+
+## How well does AIS effort track radar-detected vessels?
+
+```{r fig-ais-sar}
+#| fig-cap: "AIS fishing hours vs SAR detections per 0.1° cell (both per year, log scales). Red line: log-log linear fit."
+#| fig-width: 7.5
+#| fig-height: 5.8
+both <- filter(cell, hours > 0, total > 0)
+rho  <- cor(both$hours, both$total, method = "spearman")
+fit  <- lm(log10(hours) ~ log10(total / n_years), data = both)
+
+ggplot(both, aes(total / n_years, hours)) +
+  geom_hex(bins = 60) +
+  geom_smooth(method = "lm", formula = y ~ x, colour = pal_ocean[["alert"]], linewidth = 0.8) +
+  scale_x_log10(labels = label_comma()) +
+  scale_y_log10(labels = label_comma()) +
+  scale_fill_viridis_c(option = "mako", direction = -1, trans = "log10", name = "Cells") +
+  labs(x = "SAR detections per year (all vessels)", y = "AIS fishing hours per year",
+       title = "AIS fishing effort vs radar-detected vessels",
+       subtitle = sprintf("Spearman rho = %.2f, log-log R² = %.2f, n = %s cells",
+                          rho, summary(fit)$r.squared, fmt(nrow(both)))) +
+  theme_ocean() + theme(legend.position = "right")
+```
+
+```{r coverage}
+#| code-summary: "Cells seen by one source only"
+coverage <- cell |>
+  summarise(both = sum(total > 0 & hours > 0),
+            sar_only = sum(total > 0 & hours == 0),
+            ais_only = sum(total == 0 & hours > 0),
+            sar_in_sar_only = sum(total[hours == 0]) / sum(total))
+```
+
+In the `r fmt(coverage$both)` cells where both sources record activity, they are only moderately related (Spearman ρ = `r sprintf("%.2f", rho)`). SAR detection counts explain about `r pct(summary(fit)$r.squared)` of the variation in log AIS effort. Another `r fmt(coverage$sar_only)` cells have radar detections but no AIS fishing at all, and they hold `r pct(coverage$sar_in_sar_only)` of all SAR detections. Many of these are shipping lanes and ports, but some will be fishing by vessels without AIS. Conversely, `r fmt(coverage$ais_only)` cells have AIS fishing but no radar detection, which is expected where boats are smaller than SAR can resolve or where satellite coverage is sparse.
+
+There are two reasons for the weak relationship. Radar counts every vessel present at the moment the satellite passes, while AIS effort sums hours of fishing behaviour over the whole month. And each source misses a different part of the fleet. Environmental and seabed covariates are what should help explain the difference.
+
+## Caveats {#caveats}
+
+- **SAR counts all vessels.** These detections are not filtered to fishing vessels. A next step is to apply GFW's fishing classification of SAR detections (`neural_vessel_type`) or to mask shipping lanes.
+- **Sentinel-1 coverage changed.** The loss of Sentinel-1B in December 2021 halved revisits. Sentinel-1C entered service in 2025, outside this window.
+- **Small-scale fisheries are largely invisible.** Most of the Mediterranean fleet is under 12 m and neither carries AIS nor shows up reliably in SAR.
+- **AIS fishing hours are modelled.** "Apparent fishing" is a classification of vessel movement, and gear labels come from GFW's vessel identity models (`fishing` and `inconclusive` are grouped here as Other / unknown).
+- **The study area is approximate.** It is a hand-drawn outline, not the official GFCM area.
+
+## Next steps for the data lab
+
+1. **Predicting fishing effort.** Add environmental and climate covariates from Copernicus Marine reanalysis (temperature, mixed-layer depth, chlorophyll, primary production), plus depth, distance to port and distance to coast. Then model AIS effort, and the SAR-AIS gap, at the cell-month level.
+2. **Fishing and MPAs.** Overlay WDPA marine protected areas with their designation dates and protection levels. Then test whether effort changes after designation, how it varies across MPA boundaries, and whether MPAs were placed in already low-effort areas.

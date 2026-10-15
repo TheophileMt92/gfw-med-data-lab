@@ -1,0 +1,9 @@
+data/
+.Rhistory
+.RData
+.Rproj.user/
+.Renviron
+.DS_Store
+.quarto/
+index_files/
+*.knit.md
