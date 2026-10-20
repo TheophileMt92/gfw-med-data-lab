@@ -1,9 +1,11 @@
 # climate-env-ais: review notes
 
 Prepared by Théophile Mouton for the climate-env-ais working group, Global Fishing Watch Mediterranean Data Lab.
-**Last updated: 20 Oct 2026, 18:31 (Rome time).**
+**Last updated: 20 Oct 2026, 18:44 (Rome time).**
 
-Companion report: `Quarto_report_CLIMATE-ENV-AIS.html` (source `Quarto_report_CLIMATE-ENV-AIS.qmd`). Click any figure in the report to view it full screen.
+**Live report: [Climate, environment and AIS fishing effort in GSA 6](https://theophilemt92.github.io/gfw-med-data-lab/climate-env-ais/Quarto_report_CLIMATE-ENV-AIS.html)**
+
+A downloadable copy (`Quarto_report_CLIMATE-ENV-AIS.html`) and its Quarto source (`Quarto_report_CLIMATE-ENV-AIS.qmd`) are in this Drive folder and on [GitHub](https://github.com/TheophileMt92/gfw-med-data-lab/tree/main/climate-env-ais). Click any figure in the report to view it full screen.
 
 ## What the pipeline does
 
