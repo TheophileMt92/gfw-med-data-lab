@@ -5,7 +5,7 @@ author: "climate-env-ais working group"
 date: today
 format:
   html:
-    output-file: index.html
+    output-file: Quarto_report_CLIMATE-ENV-AIS.html
     embed-resources: true
     code-fold: true
     code-summary: "Show code"
@@ -18,6 +18,7 @@ format:
     number-sections: false
     fig-align: center
     fig-dpi: 150
+    lightbox: true
 execute:
   echo: true
   message: false
@@ -78,11 +79,12 @@ This report brings together the four exercises of the working group into one rep
 | Step | Script | Question | Main output |
 |---|---|---|---|
 | 1 | `scripts/1_data exploration.R` | What do the survey, environmental and AIS data look like, and how do they join? | `data/processed/MEDITS_and_environment.csv` |
-| 2 | `scripts/2_SDMs.R` | How does fish abundance relate to the environment, and how has habitat suitability changed 2012-2021? | `outputs/Final_gam_prediction.csv`, `outputs/fish.change6.csv` |
+| 2a | `scripts/2_SDMs.R` | How does total fish abundance relate to the environment, and how has habitat suitability changed 2012-2021? | `outputs/Final_gam_prediction.csv`, `outputs/fish.change6.csv` |
+| 2b | Section 2b of this report | The same question for red mullet (*Mullus barbatus*), the group's focal species | `outputs/MULLBAR_gam_prediction_GSA6.csv`, `outputs/MULLBAR_change_GSA6.csv` |
 | 3 | `scripts/3_MHW.R` | Where and when do marine heatwaves occur, and does trawling differ in heatwave summers? | `outputs/MHW_gsa6.csv`, `outputs/fishing_change_MHW.csv` |
 | 4 | `scripts/4_Vulnerability Index.R` | Which areas combine heatwave exposure, habitat loss and fishing pressure? | `outputs/CFVI_GSA6.csv` |
 
-Steps that call the Global Fishing Watch API, read the large prediction grid or need the daily SST NetCDF are shown but not re-run (marked *not evaluated*). Their saved outputs are loaded instead. Everything else runs when the report is rendered.
+Steps the group already ran that call the Global Fishing Watch API, read the large prediction grid or need the daily SST NetCDF are shown but not re-run (marked *not evaluated*). Their saved outputs are loaded instead. Everything else runs when the report is rendered, including the red mullet model of Section 2b, which is new.
 
 The study area is **GSA 6 (northern Spain)**, the GFCM Geographical Sub-Area covering the Spanish Mediterranean coast from Murcia to the French border, and the fleet is restricted to **trawlers**, the gear sampled by MEDITS.
 
@@ -230,7 +232,7 @@ In 2012, only `r percent(ais_cov$matched[ais_cov$YEAR == 2012], 1)` of hauls fal
 
 > **Discussion point: AIS ramp-up.** Trawler AIS coverage at MEDITS hauls grows sharply over 2012-2014. Any comparison across these years (habitat change in Step 2, heatwave vs non-heatwave summers in Step 3) partly measures AIS uptake. Options: start in 2015, use effort per vessel, or treat early years separately.
 
-## 2. Species distribution model
+## 2a. Species distribution model: total fish abundance
 
 ### Response variable
 
@@ -456,6 +458,233 @@ fish.change6 |>
 ```
 
 On the abundance scale, the median cell changes by `r percent(median(fish.change6$perc.change.bt, na.rm = TRUE) / 100, 1)` between 2012 and 2021, against `r percent(median(fish.change6$perc.change, na.rm = TRUE) / 100, 1)` on the log scale, with some cells more than tripling. Changes this large over a decade are unlikely to be purely environmental: the 2012 predictions use near-zero AIS effort (Step 1), so part of the contrast comes from the fishing-hours smooth.
+
+## 2b. Species distribution model: red mullet
+
+The group has since chosen to focus on **red mullet** (*Mullus barbatus*, MEDITS code `MULLBAR`), a key commercial target of the GSA 6 bottom-trawl fleet. This section repeats the SDM workflow of Section 2a for that species, with three changes that follow from the discussion points above:
+
+- **Absences are added back.** MEDITS only lists species that were caught, so hauls without red mullet are filled in as zero abundance.
+- **A Tweedie GAM replaces the Gaussian model on log abundance.** The Tweedie distribution handles exact zeros and skewed positive values in one model, and predictions come out directly as N/km², so no back-transformation is needed.
+- **Depth is added as a candidate predictor**, since red mullet is mainly a continental-shelf species, and hauls without matched AIS effort are set to zero effort in both fitting and prediction.
+
+### Response variable
+
+```{r mb-data}
+#| code-summary: "Build the red mullet haul table for GSA 6, with zeros"
+
+hauls6 <- med |>
+  filter(GSA == 6) |>
+  distinct(id, .keep_all = TRUE) |>
+  select(id, YEAR, MONTH, lon = MEAN_LONGITUDE_DEC, lat = MEAN_LATITUDE_DEC,
+         depth = MEAN_DEPTH, sst, botTemp, so, chl, fishing_hours)
+
+mull6 <- hauls6 |>
+  left_join(med |> filter(MEDITS_CODE == "MULLBAR") |> select(id, N_km2, kg_km2),
+            by = "id") |>
+  mutate(N_km2 = replace_na(N_km2, 0),
+         kg_km2 = replace_na(kg_km2, 0),
+         present = N_km2 > 0,
+         fishing_hours = replace_na(fishing_hours, 0)) |>
+  drop_na(botTemp, so, chl, depth)
+```
+
+Red mullet was caught in `r fmt(sum(mull6$present))` of `r fmt(nrow(mull6))` GSA 6 hauls (`r percent(mean(mull6$present), 1)`), with a median density of `r fmt(median(mull6$N_km2[mull6$present]))` individuals per km² where present.
+
+```{r fig-mb-hauls}
+#| fig-cap: "Red mullet in GSA 6 MEDITS hauls, 2012-2021. Grey crosses are hauls where the species was not caught."
+#| fig-width: 11
+#| fig-height: 6
+
+ggplot() + land +
+  geom_point(data = filter(mull6, !present), aes(lon, lat),
+             shape = 4, size = 0.6, colour = "grey55") +
+  geom_point(data = filter(mull6, present), aes(lon, lat, colour = log10(N_km2 + 1)),
+             size = 0.9) +
+  scale_colour_gradientn(colours = c("lightyellow", "gold", "orange", "red", "darkred"),
+                         name = "log10(N/km² + 1)") +
+  gsa6_view + facet_wrap(~YEAR, ncol = 5) + theme_map
+```
+
+```{r fig-mb-depth}
+#| fig-cap: "Red mullet occurrence and mean density by haul depth."
+#| fig-width: 10
+#| fig-height: 3.8
+
+mb_depth_tab <- mull6 |>
+  mutate(depth_bin = cut(depth, c(0, 50, 100, 150, 200, 300, 500, 800), dig.lab = 4)) |>
+  group_by(depth_bin) |>
+  summarise(hauls = n(), occurrence = mean(present), mean_N = mean(N_km2), .groups = "drop")
+
+(ggplot(mb_depth_tab, aes(depth_bin, occurrence)) +
+   geom_col(fill = pal_ocean[["surface"]]) +
+   scale_y_continuous(labels = percent) +
+   labs(title = "Occurrence", x = "Depth (m)", y = NULL)) +
+(ggplot(mb_depth_tab, aes(depth_bin, mean_N)) +
+   geom_col(fill = pal_ocean[["alert"]]) +
+   scale_y_continuous(labels = label_comma()) +
+   labs(title = "Mean density (N/km²)", x = "Depth (m)", y = NULL)) & theme_ocean()
+```
+
+### Collinearity
+
+```{r tbl-mb-vif}
+#| code-summary: "Variance inflation factors for the red mullet predictors"
+#| classes: tbl-compact
+
+mb_vars <- select(mull6, botTemp, so, chl, depth, fishing_hours)
+kable(tibble(variable = names(mb_vars), VIF = round(vif_manual(mb_vars), 2)))
+```
+
+### GAM fitting
+
+Two models are compared: one with the predictors retained by the group in Section 2a, and one adding depth. Settings are otherwise the same (`k = 4`, REML, `select = TRUE`), with a Tweedie family and log link.
+
+```{r mb-gam}
+#| code-summary: "Fit Tweedie GAMs for red mullet density"
+
+mb_env <- gam(N_km2 ~ s(botTemp, k = 4) + s(so, k = 4) + s(chl, k = 4) +
+                s(fishing_hours, k = 4),
+              family = tw(link = "log"), data = mull6, method = "REML", select = TRUE)
+
+mb_depth <- gam(N_km2 ~ s(botTemp, k = 4) + s(so, k = 4) + s(chl, k = 4) +
+                  s(depth, k = 4) + s(fishing_hours, k = 4),
+                family = tw(link = "log"), data = mull6, method = "REML", select = TRUE)
+
+mb_tab <- tibble(
+  model = c("Section 2a predictors", "Section 2a predictors + depth"),
+  n = c(nobs(mb_env), nobs(mb_depth)),
+  `Deviance explained` = percent(c(summary(mb_env)$dev.expl, summary(mb_depth)$dev.expl), 0.1),
+  AIC = round(c(AIC(mb_env), AIC(mb_depth)), 1),
+  `Tweedie p` = round(c(mb_env$family$getTheta(TRUE), mb_depth$family$getTheta(TRUE)), 2))
+```
+
+```{r tbl-mb-gam}
+#| echo: false
+#| classes: tbl-compact
+kable(mb_tab)
+```
+
+```{r tbl-mb-smooths}
+#| code-summary: "Smooth terms of the depth model"
+#| classes: tbl-compact
+
+s_mb <- as.data.frame(summary(mb_depth)$s.table)
+kable(tibble(term = rownames(s_mb), edf = round(s_mb$edf, 2),
+             F = round(s_mb[[3]], 2),
+             `p-value` = format.pval(s_mb[[4]], digits = 2, eps = 1e-4)))
+```
+
+```{r fig-mb-smooths}
+#| fig-cap: "Partial effects of the red mullet depth model, on the log-link scale."
+#| fig-width: 10
+#| fig-height: 7
+
+plot(mb_depth, pages = 1, shade = TRUE, shade.col = pal_ocean[["foam"]],
+     col = pal_ocean[["deep"]], rug = TRUE, scale = 0)
+```
+
+```{r fig-mb-obs-pred}
+#| fig-cap: "Observed vs fitted red mullet density per haul (log scale). Hauls with zero catch are shown at the bottom."
+#| fig-width: 6
+#| fig-height: 5
+
+mull6$fitted <- fitted(mb_depth)
+ggplot(mull6, aes(fitted + 1, N_km2 + 1)) +
+  geom_abline(linetype = 2, colour = "grey50") +
+  geom_point(aes(colour = present), alpha = 0.5, size = 1) +
+  scale_x_log10(labels = label_comma()) + scale_y_log10(labels = label_comma()) +
+  scale_colour_manual(values = c(`TRUE` = pal_ocean[["surface"]], `FALSE` = pal_ocean[["sand"]]),
+                      labels = c(`TRUE` = "Caught", `FALSE` = "Not caught"), name = NULL) +
+  labs(x = "Fitted N/km² + 1", y = "Observed N/km² + 1") + theme_ocean()
+```
+
+Depth transforms the model: deviance explained rises from `r percent(summary(mb_env)$dev.expl, 1)` to `r percent(summary(mb_depth)$dev.expl, 1)`, and AIC drops by `r fmt(AIC(mb_env) - AIC(mb_depth))` units. Predicted density is high and fairly flat down to about 200 m, then falls steeply on the slope, consistent with red mullet's known shelf distribution. Among the environmental terms, density increases with bottom temperature and decreases with chlorophyll, while surface salinity adds little (p ≈ 0.07). Collinearity is low for all five predictors (VIF < 2).
+
+> **Discussion point: the fishing-hours smooth.** The effort term is strong but non-monotonic, with the highest predicted density in cells with no recorded effort, a dip around 1,000-1,500 hours and a second peak around 3,000. This is unlikely to be a causal effect of trawling. Trawlers target red mullet grounds, so effort and density are confounded, and "zero effort" mixes untrawled areas with hauls that simply had no AIS match in the early years. The term is best read as a nuisance covariate, and the effort-held-constant predictions below remove its influence on the time trend.
+
+### Prediction and habitat change
+
+The depth model is projected onto the hindcast grid for **June**, the main MEDITS month in GSA 6, so that predictions match the conditions the model was fitted on. Grid cells deeper than the deepest sampled haul are excluded to avoid extrapolation. Habitat change is computed **2015 to 2021**, after the AIS ramp-up, and also with fishing effort held at each cell's 2015-2021 mean, so that the change reflects the environment alone.
+
+```{r mb-predict}
+#| code-summary: "Predict on the June hindcast grid (reads the 266 MB grid once; cached)"
+
+grid6 <- read.csv("data/raw/MED.env_grid_hindcast_2012_2021.csv") |>
+  filter(GSA == 6, MONTH == 6) |>
+  drop_na(botTemp, so, chl, MEAN_DEPTH) |>
+  mutate(depth = abs(MEAN_DEPTH),
+         fishing_hours = replace_na(fishing_hours, 0)) |>
+  filter(depth > 0, depth <= max(mull6$depth))
+
+pred_mb <- predict(mb_depth, grid6, type = "link", se.fit = TRUE)
+
+mull.pred6 <- grid6 |>
+  select(grid.id, grid.X, grid.Y, year, botTemp, so, chl, depth, fishing_hours) |>
+  mutate(fit = exp(pred_mb$fit),
+         lwr = exp(pred_mb$fit - 1.96 * pred_mb$se.fit),
+         upr = exp(pred_mb$fit + 1.96 * pred_mb$se.fit))
+
+# Environment-only prediction: fishing effort fixed at each cell's 2015-2021 mean
+grid6_fix <- grid6 |>
+  group_by(grid.id) |>
+  mutate(fishing_hours = mean(fishing_hours[year >= 2015])) |>
+  ungroup()
+mull.pred6$fit_env <- as.numeric(exp(predict(mb_depth, grid6_fix, type = "link")))
+
+write.csv(mull.pred6, "outputs/MULLBAR_gam_prediction_GSA6.csv", row.names = FALSE)
+```
+
+```{r fig-mb-pred}
+#| fig-cap: "Predicted June red mullet density in GSA 6, 2012-2021."
+#| fig-width: 11
+#| fig-height: 6
+
+ggplot(mull.pred6) + land +
+  geom_point(aes(grid.X, grid.Y, colour = log10(fit + 1)), size = 0.45) +
+  scale_colour_gradientn(colours = c("lightyellow", "gold", "orange", "red", "darkred"),
+                         name = "log10(predicted N/km² + 1)") +
+  gsa6_view + facet_wrap(~year, ncol = 5) + theme_map
+```
+
+```{r mb-change}
+#| code-summary: "Compute habitat change 2015-2021, with and without effort changes"
+
+mull.change6 <- mull.pred6 |>
+  filter(year %in% c(2015, 2021)) |>
+  select(grid.id, grid.X, grid.Y, year, fit, fit_env) |>
+  pivot_wider(names_from = year, values_from = c(fit, fit_env)) |>
+  mutate(perc.change     = 100 * (fit_2021 / fit_2015 - 1),
+         perc.change.env = 100 * (fit_env_2021 / fit_env_2015 - 1))
+
+write.csv(mull.change6, "outputs/MULLBAR_change_GSA6.csv", row.names = FALSE)
+```
+
+```{r fig-mb-change}
+#| fig-cap: "Predicted red mullet density in 2015 and 2021, and percentage change 2015-2021 from the full model and with fishing effort held constant."
+#| fig-width: 11
+#| fig-height: 10
+
+pct_lim <- quantile(abs(c(mull.change6$perc.change, mull.change6$perc.change.env)),
+                    0.98, na.rm = TRUE)
+dens_scale <- scale_colour_gradientn(colours = c("lightyellow", "gold", "orange", "red", "darkred"),
+                                     name = "log10(N/km² + 1)")
+pct_scale <- scale_colour_gradient2(low = pal_ocean[["mid"]], mid = "white", high = pal_ocean[["alert"]],
+                                    midpoint = 0, limits = c(-pct_lim, pct_lim), oob = squish,
+                                    name = "% change")
+base_map <- function(var) ggplot(mull.change6) + land +
+  geom_point(aes(grid.X, grid.Y, colour = .data[[var]]), size = 0.5) + gsa6_view + theme_map
+
+mull.change6 <- mutate(mull.change6, d2015 = log10(fit_2015 + 1), d2021 = log10(fit_2021 + 1))
+
+(base_map("d2015") + dens_scale + labs(title = "2015") +
+ base_map("d2021") + dens_scale + labs(title = "2021")) /
+(base_map("perc.change") + pct_scale + labs(title = "% change, full model") +
+ base_map("perc.change.env") + pct_scale + labs(title = "% change, effort held constant"))
+```
+
+Across the `r fmt(nrow(mull.change6))` shelf and upper-slope cells predicted in both years, the median change in red mullet density from 2015 to 2021 is `r percent(median(mull.change6$perc.change, na.rm = TRUE) / 100, 1)` with the full model and `r percent(median(mull.change6$perc.change.env, na.rm = TRUE) / 100, 1)` with fishing effort held constant. With effort held constant, `r percent(mean(mull.change6$perc.change.env < 0, na.rm = TRUE), 1)` of cells decline and changes range from `r percent(min(mull.change6$perc.change.env, na.rm = TRUE) / 100, 1)` to `r percent(max(mull.change6$perc.change.env, na.rm = TRUE) / 100, 1)`. The full model gives the same median but a much wider range (up to `r percent(max(mull.change6$perc.change, na.rm = TRUE) / 100, 1)` in a few cells), which comes from year-to-year changes in recorded effort rather than in the environment. Declines are widespread along the central and southern coast of the GSA.
+
+> **Discussion point: what drives the decline.** The effort-held-constant change reflects only bottom temperature, salinity and chlorophyll, but not which of them. Mean bottom temperature on the prediction grid is similar in 2015 and 2021, so the decline is not simply a warming signal. Partial predictions varying one covariate at a time, and a check against the observed MEDITS trend, would show which term drives it. Using two single years also makes the change sensitive to the conditions in those particular Junes. A trend over 2015-2021 would be more robust. The 2012 predictions are the highest of the series because 2012 hauls carry near-zero recorded effort, another reason to start in 2015.
 
 ## 3. Marine heatwaves and fleet behaviour
 
@@ -713,5 +942,7 @@ The pipeline links survey, environmental, heatwave and AIS data into a coherent 
 2. **Log scale**: back-transform SDM predictions before computing habitat change and the sensitivity score.
 3. **Zeros**: treat unmatched hauls and unfished cells consistently as zero effort in fitting, prediction and averaging.
 4. **Index design**: align the time windows of the three CFVI components and test sensitivity to transformation and weights.
+
+For **red mullet** (Section 2b), the model with zeros, a Tweedie family and depth explains about half the deviance and predicts a widespread decline in June density from 2015 to 2021 that holds when fishing effort is held constant. Natural next steps are to identify which environmental term drives the decline, check it against the observed MEDITS trend, and feed the red mullet habitat change into the vulnerability index in place of total fish abundance.
 
 Smaller fixes (grid alignment in the haul join, MHW baseline length, weighted depth and distance means, the unfinished daily block in Script 1) are listed in `review_notes.md`.

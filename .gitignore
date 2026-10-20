@@ -8,3 +8,4 @@ data/
 index_files/
 *.knit.md
 *_cache/
+Quarto_report_*_files/
