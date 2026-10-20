@@ -7,3 +7,4 @@ data/
 .quarto/
 index_files/
 *.knit.md
+*_cache/
