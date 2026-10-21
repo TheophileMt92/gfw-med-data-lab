@@ -275,22 +275,64 @@ GSA 6 contributes `r fmt(nrow(fish6))` hauls. Abundance is strongly right-skewed
 ### Collinearity
 
 ```{r fig-cor}
-#| fig-cap: "Pairwise correlations among candidate predictors in GSA 6."
-#| fig-width: 6.5
-#| fig-height: 5.5
+#| fig-cap: "Pairwise Pearson correlations among candidate predictors in GSA 6 hauls. Variables are ordered by hierarchical clustering so that correlated groups sit together; pairs with |r| above 0.6 are outlined."
+#| fig-width: 7.5
+#| fig-height: 6.5
+
+# Readable names for predictors
+var_labels <- c(sst = "Surface temperature", botTemp = "Bottom temperature",
+                so = "Surface salinity", botso = "Bottom salinity",
+                chl = "Chlorophyll", MEAN_DEPTH = "Depth", depth = "Depth",
+                fishing_hours = "Trawling effort (AIS)")
+
+# Lower-triangle correlation heatmap, clustered, with |r| > threshold outlined
+cor_heatmap <- function(df, threshold = 0.6) {
+  m <- cor(df, use = "pairwise.complete.obs")
+  ord <- hclust(as.dist(1 - abs(m)))$order
+  m <- m[ord, ord]
+  labs <- unname(var_labels[colnames(m)])
+  dimnames(m) <- list(labs, labs)
+
+  d <- as.data.frame(as.table(m)) |>
+    setNames(c("x", "y", "r")) |>
+    mutate(i = as.integer(x), j = as.integer(y)) |>
+    filter(i < j) |>
+    mutate(x = factor(x, labs), y = factor(y, rev(labs)),
+           strong = abs(r) > threshold,
+           txt = ifelse(abs(r) > 0.45, "white", pal_ocean[["deep"]]))
+
+  ggplot(d, aes(x, y)) +
+    geom_tile(aes(fill = r), colour = "white", linewidth = 1.6) +
+    geom_tile(data = filter(d, strong), fill = NA, colour = pal_ocean[["deep"]],
+              linewidth = 0.9, width = 0.9, height = 0.9) +
+    geom_text(aes(label = sprintf("%.2f", r), colour = txt), size = 3.8,
+              fontface = "bold", family = "sans") +
+    scale_colour_identity() +
+    scale_fill_gradientn(
+      colours = c("#8c2d1f", "#d9785f", "#f3d6c8", "#f7f7f5", "#c8eaf4", "#4eb8d4", "#0d4f7a"),
+      values = scales::rescale(c(-1, -0.6, -0.25, 0, 0.25, 0.6, 1)),
+      limits = c(-1, 1), breaks = c(-1, -0.5, 0, 0.5, 1),
+      name = "Pearson r") +
+    scale_x_discrete(position = "top", drop = TRUE) +
+    scale_y_discrete(drop = TRUE) +
+    coord_fixed() +
+    guides(fill = guide_colourbar(barwidth = unit(14, "lines"), barheight = unit(0.6, "lines"),
+                                  title.position = "top", title.hjust = 0.5,
+                                  ticks.colour = "white", frame.colour = NA)) +
+    theme_minimal(base_size = 12) +
+    theme(axis.title = element_blank(),
+          axis.text.x.top = element_text(angle = 35, hjust = 0, vjust = 0,
+                                         colour = pal_ocean[["deep"]]),
+          axis.text.y = element_text(colour = pal_ocean[["deep"]]),
+          panel.grid = element_blank(),
+          legend.position = "bottom",
+          legend.title = element_text(colour = "grey30", size = 10),
+          plot.margin = margin(10, 30, 10, 10))
+}
 
 vars <- select(fish6, sst, botTemp, so, botso, chl, MEAN_DEPTH, fishing_hours)
 cor.mat <- cor(vars, use = "pairwise.complete.obs")
-
-ggplot(as.data.frame(as.table(cor.mat)), aes(Var1, Var2)) +
-  geom_point(aes(size = abs(Freq), fill = Freq), shape = 21, colour = "grey30") +
-  geom_text(aes(label = round(Freq, 2)), size = 3) +
-  scale_size(range = c(2, 14), guide = "none") +
-  scale_fill_gradient2(low = pal_ocean[["alert"]], mid = "white",
-                       high = pal_ocean[["deep"]], limits = c(-1, 1), name = "r") +
-  coord_fixed() + theme_ocean() +
-  theme(axis.title = element_blank(), axis.text.x = element_text(angle = 45, hjust = 1),
-        legend.position = "right")
+cor_heatmap(vars)
 ```
 
 The group's script uses `usdm::vif()` and `vifstep(th = 3)`. The same variance inflation factors are computed below from auxiliary regressions.
@@ -536,6 +578,14 @@ mb_depth_tab <- mull6 |>
 
 mb_vars <- select(mull6, botTemp, so, chl, depth, fishing_hours)
 kable(tibble(variable = names(mb_vars), VIF = round(vif_manual(mb_vars), 2)))
+```
+
+```{r fig-mb-cor}
+#| fig-cap: "Pairwise correlations among the red mullet model predictors (all GSA 6 hauls, zeros included)."
+#| fig-width: 6.5
+#| fig-height: 5.6
+
+cor_heatmap(mb_vars)
 ```
 
 ### GAM fitting
