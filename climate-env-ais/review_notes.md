@@ -1,7 +1,7 @@
 # climate-env-ais: review notes
 
 Prepared by Théophile Mouton for the climate-env-ais working group, Global Fishing Watch Mediterranean Data Lab.
-**Last updated: 21 Oct 2026, 15:14 (Rome time).**
+**Last updated: 21 Oct 2026, 15:27 (Rome time).**
 
 **Live report: [Climate, environment and AIS fishing effort in GSA 6](https://theophilemt92.github.io/gfw-med-data-lab/climate-env-ais/Quarto_report_CLIMATE-ENV-AIS.html)**
 
@@ -50,7 +50,7 @@ Contributors: Walter Zupa (MEDITS-environment merges), D. Panzeri (haul tables, 
 - **To discuss:**
   - The highest index year in each area is its least-sampled year (GSA 6 2020, Adriatic 2017). Needs `get_index()` standard errors from the fitted model.
   - The GSA 6 prediction grid extends to 11 m and 22 °C, beyond the hauls (35-300 m, ≤ 17.6 °C). Cells shallower than 35 m are 12% of the grid but 34% of predicted biomass.
-  - The HSI rescaling to 0-1 is undocumented.
+  - The HSI rescaling to 0-1 is undocumented; rescaling the fixed effects (depth + bottom temperature) to 0-1 across all years reproduces the group's GSA 6 map, and the report applies it to both areas (to confirm with Pamela).
 - **Still to share:** the sdmTMB fitting script, the data-preparation script (`MB_*.rds`, effort and prediction grids) and the HSI rescaling.
 
 ## Issues in the existing pipeline

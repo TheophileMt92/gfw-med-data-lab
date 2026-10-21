@@ -912,7 +912,7 @@ On the morning of 21 October the working group extended the red mullet analysis 
 |---|---|
 | Walter Zupa | MEDITS red mullet hauls merged with Copernicus bottom temperature, salinity, oxygen and SST, for GSA 6 and GSAs 17-18 |
 | D. Panzeri | Model-ready haul tables, GFW trawling-effort grids, prediction grids and the model predictions (`MB_*.rds`, `eff_grid_*.rds`, `pred_*.rds`) |
-| Pamela Lattanzi | Aims and data decisions (*Recap*), exploratory analysis, maps of predicted density, random effects and habitat suitability |
+| Pamela Lattanzi | Aims and data decisions (*Recap*), exploratory analysis, maps of predicted density, random effects and habitat suitability (GSA 6) |
 | Stef (`eda_script_stef.R`) | Exploration for GSAs 17-18: bathymetry, biomass maps, correlations among predictors |
 
 ### Aims and data decisions
@@ -1006,42 +1006,32 @@ In GSA 6, predicted biomass is highest on the inner shelf along the whole coast 
 
 ### Spatial and spatio-temporal random effects
 
-```{r fig-grp-omega}
-#| fig-cap: "Spatial random field (ω, constant over years) in each area: persistent hotspots (red) and coldspots (blue) of biomass not explained by depth and bottom temperature."
-#| fig-width: 11
-#| fig-height: 5
-
-om <- pred_g |> filter(year == 2014)
-om_lim <- max(abs(om$omega_s - ave(om$omega_s, om$region)))
-om_scale <- scale_fill_gradient2(low = pal_ocean[["mid"]], mid = "white", high = pal_ocean[["alert"]],
-                                 midpoint = 0, limits = c(-om_lim, om_lim), oob = squish,
-                                 name = "ω (centred within area)")
-om <- om |> group_by(region) |> mutate(omega_c = omega_s - mean(omega_s)) |> ungroup()
-
-(ggplot() + tile(filter(om, region == "GSA 6"), "omega_c") + land + om_scale +
-   gsa6_view + labs(title = "GSA 6") + theme_map) +
-(ggplot() + tile(filter(om, region == "GSAs 17-18"), "omega_c") + land + om_scale +
-   adr_view + labs(title = "GSAs 17-18") + theme_map) +
-  plot_layout(guides = "collect") & theme(legend.position = "bottom") & bar_wide
-```
-
 ```{r fig-grp-eps}
-#| fig-cap: "Spatio-temporal random field (ε) by year: departures from the average spatial pattern in each year. Same colour scale in both areas."
-#| fig-width: 11
-#| fig-height: 5.8
+#| fig-cap: "Random effects of the group's model. First column: spatial random field (ω), constant over years, centred within each area; persistent hotspots (red) and coldspots (blue) of biomass not explained by depth and bottom temperature. Other columns: spatio-temporal random field (ε) by year, the departure from that persistent pattern in each year. One colour scale for all panels."
+#| fig-width: 12
+#| fig-height: 6.2
 
-eps_lim <- max(abs(pred_g$epsilon_st))
-eps_scale <- scale_fill_gradient2(low = pal_ocean[["mid"]], mid = "white", high = pal_ocean[["alert"]],
-                                  midpoint = 0, limits = c(-eps_lim, eps_lim), name = "ε")
+re_long <- bind_rows(
+  pred_g |> filter(year == 2014) |> group_by(region) |>
+    mutate(value = omega_s - mean(omega_s), panel = "ω (all years)") |> ungroup(),
+  pred_g |> mutate(value = epsilon_st, panel = as.character(year))
+) |> mutate(panel = factor(panel, c("ω (all years)", as.character(2014:2021))))
 
-(ggplot() + tile(filter(pred_g, region == "GSA 6"), "epsilon_st") + land + eps_scale +
-   gsa6_view + facet_wrap(~year, ncol = 8) + labs(title = "GSA 6") + theme_map) /
-(ggplot() + tile(filter(pred_g, region == "GSAs 17-18"), "epsilon_st") + land + eps_scale +
-   adr_view + facet_wrap(~year, ncol = 8) + labs(title = "GSAs 17-18") + theme_map) +
+re_lim <- max(abs(re_long$value))
+re_scale <- scale_fill_gradient2(low = pal_ocean[["mid"]], mid = "white", high = pal_ocean[["alert"]],
+                                 midpoint = 0, limits = c(-re_lim, re_lim),
+                                 name = "Random effect (log scale)")
+re_map <- function(reg, view) {
+  ggplot() + tile(filter(re_long, region == reg), "value") + land + re_scale + view +
+    facet_wrap(~panel, nrow = 1) + labs(title = reg) + theme_map +
+    theme(strip.text = element_text(face = "bold"))
+}
+
+re_map("GSA 6", gsa6_view) / re_map("GSAs 17-18", adr_view) +
   plot_layout(guides = "collect") & theme(legend.position = "bottom") & bar_wide
 ```
 
-The spatio-temporal field is small in GSA 6 (ε between `r round(min(pred_g$epsilon_st[pred_g$region == "GSA 6"]), 2)` and `r round(max(pred_g$epsilon_st[pred_g$region == "GSA 6"]), 2)`) but large in the Adriatic (`r round(min(pred_g$epsilon_st[pred_g$region == "GSAs 17-18"]), 2)` to `r round(max(pred_g$epsilon_st[pred_g$region == "GSAs 17-18"]), 2)`), where a value of ±2.9 multiplies local biomass by up to about `r round(exp(max(abs(pred_g$epsilon_st[pred_g$region == "GSAs 17-18"]))))`. In GSA 6, most of the spatial structure is persistent (ω) rather than year-specific.
+The spatio-temporal field is small in GSA 6 (ε between `r round(min(pred_g$epsilon_st[pred_g$region == "GSA 6"]), 2)` and `r round(max(pred_g$epsilon_st[pred_g$region == "GSA 6"]), 2)`) but large in the Adriatic (`r round(min(pred_g$epsilon_st[pred_g$region == "GSAs 17-18"]), 2)` to `r round(max(pred_g$epsilon_st[pred_g$region == "GSAs 17-18"]), 2)`), where a value of ±2.9 multiplies local biomass by up to about `r round(exp(max(abs(pred_g$epsilon_st[pred_g$region == "GSAs 17-18"]))))`. In GSA 6, most of the spatial structure is persistent (ω, first column) rather than year-specific: ω spans `r round(diff(range(re_long$value[re_long$region == "GSA 6" & re_long$panel == "ω (all years)"])), 1)` log units across the area, against `r round(diff(range(pred_g$epsilon_st[pred_g$region == "GSA 6"])), 1)` for ε. In the Adriatic, the year-specific field is as large as the persistent one.
 
 ### Biomass index
 
@@ -1078,16 +1068,39 @@ The GSA 6 index stays within ±`r percent(max(abs(idx_g$rel[idx_g$region == "GSA
 
 ### Habitat suitability index
 
-The group's final aim was a 0-1 habitat suitability index (HSI). Their map for GSA 6 is shown as produced; the way predicted biomass was rescaled to 0-1 is not documented in the shared files.
+The group's final aim was a 0-1 habitat suitability index (HSI), produced so far for GSA 6 only. The way it was rescaled is not documented, but rescaling the fixed-effect part of the model (depth and bottom temperature, `est_non_rf`) to 0-1 across all years reproduces the group's GSA 6 map closely, so the same definition is applied here to both areas. Because it uses the environmental effects only, the HSI describes where conditions suit red mullet, not the persistent hotspots captured by ω.
 
 ```{r fig-grp-hsi}
-#| fig-cap: "Group output (Pamela Lattanzi): habitat suitability index for red mullet in GSA 6, 2014-2021."
-#| out-width: "75%"
+#| fig-cap: "Habitat suitability index for red mullet, 2014-2021: fixed-effect predictions (depth and bottom temperature) of the group's model rescaled to 0-1 across all years within each area. The GSA 6 panel reproduces the group's own HSI map (Pamela Lattanzi)."
+#| fig-width: 12
+#| fig-height: 6.2
 
-include_graphics("data/group/fig_hsi_6.png")
+hsi_g <- pred_g |>
+  group_by(region) |>
+  mutate(hsi = (est_non_rf - min(est_non_rf)) / (max(est_non_rf) - min(est_non_rf))) |>
+  ungroup()
+hsi_scale <- scale_fill_viridis_c(limits = c(0, 1), name = "Habitat suitability (0-1)")
+hsi_map <- function(reg, view) {
+  ggplot() + tile(filter(hsi_g, region == reg), "hsi") + land + hsi_scale + view +
+    facet_wrap(~year, nrow = 1) + labs(title = reg) + theme_map +
+    theme(strip.text = element_text(face = "bold"))
+}
+
+hsi_map("GSA 6", gsa6_view) / hsi_map("GSAs 17-18", adr_view) +
+  plot_layout(guides = "collect") & theme(legend.position = "bottom") & bar_wide
 ```
 
-> **Still to share:** the sdmTMB model-fitting script (mesh, family, formula), the data-preparation script that builds `MB_*.rds` and the effort and prediction grids, and the HSI rescaling. With these, the index uncertainty and the HSI could be reproduced in this report.
+```{r tbl-grp-hsi}
+#| code-summary: "Mean habitat suitability by year"
+#| classes: tbl-compact
+
+kable(hsi_g |> group_by(Area = region, year) |> summarise(hsi = round(mean(hsi), 2), .groups = "drop") |>
+        pivot_wider(names_from = year, values_from = hsi))
+```
+
+Suitability is highest on the shallow inner shelf in both areas. In the Adriatic, the warm, shallow northern basin scores high almost everywhere, while the deeper south scores low. Year-to-year differences come only from bottom temperature, since depth is fixed.
+
+> **Still to share:** the sdmTMB model-fitting script (mesh, family, formula), the data-preparation script that builds `MB_*.rds` and the effort and prediction grids, and confirmation of the HSI rescaling. With these, the index uncertainty could be added and the HSI definition confirmed.
 
 ## 3. Marine heatwaves and fleet behaviour
 
