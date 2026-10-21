@@ -1068,10 +1068,10 @@ The GSA 6 index stays within ±`r percent(max(abs(idx_g$rel[idx_g$region == "GSA
 
 ### Habitat suitability index
 
-The group's final aim was a 0-1 habitat suitability index (HSI), produced so far for GSA 6 only. The way it was rescaled is not documented, but rescaling the fixed-effect part of the model (depth and bottom temperature, `est_non_rf`) to 0-1 across all years reproduces the group's GSA 6 map closely, so the same definition is applied here to both areas. Because it uses the environmental effects only, the HSI describes where conditions suit red mullet, not the persistent hotspots captured by ω.
+The group's final aim was a 0-1 habitat suitability index (HSI), mapped for both areas. The way it was rescaled is not documented, but rescaling the fixed-effect part of the model (depth and bottom temperature, `est_non_rf`) to 0-1 across all years within each area reproduces the group's maps closely, so that definition is used here. Because it uses the environmental effects only, the HSI describes where conditions suit red mullet, not the persistent hotspots captured by ω.
 
 ```{r fig-grp-hsi}
-#| fig-cap: "Habitat suitability index for red mullet, 2014-2021: fixed-effect predictions (depth and bottom temperature) of the group's model rescaled to 0-1 across all years within each area. The GSA 6 panel reproduces the group's own HSI map (Pamela Lattanzi)."
+#| fig-cap: "Habitat suitability index for red mullet, 2014-2021: fixed-effect predictions (depth and bottom temperature) of the group's model rescaled to 0-1 across all years within each area. Reproduces the group's own HSI maps for both areas (Pamela Lattanzi)."
 #| fig-width: 12
 #| fig-height: 6.2
 
@@ -1101,6 +1101,80 @@ kable(hsi_g |> group_by(Area = region, year) |> summarise(hsi = round(mean(hsi),
 Suitability is highest on the shallow inner shelf in both areas. In the Adriatic, the warm, shallow northern basin scores high almost everywhere, while the deeper south scores low. Year-to-year differences come only from bottom temperature, since depth is fixed.
 
 > **Still to share:** the sdmTMB model-fitting script (mesh, family, formula), the data-preparation script that builds `MB_*.rds` and the effort and prediction grids, and confirmation of the HSI rescaling. With these, the index uncertainty could be added and the HSI definition confirmed.
+
+### Change in habitat suitability, 2014 to 2021
+
+```{r grp-perc}
+#| code-summary: "Percentage change in HSI, 2014 to 2021"
+
+hsi_chg <- hsi_g |>
+  filter(year %in% c(2014, 2021)) |>
+  select(region, X, Y, year, hsi) |>
+  pivot_wider(names_from = year, values_from = hsi, names_prefix = "hsi_") |>
+  mutate(perc = 100 * (hsi_2021 - hsi_2014) / hsi_2014,
+         diff = hsi_2021 - hsi_2014)
+pc_rng <- function(reg) with(filter(hsi_chg, region == reg),
+                             paste0(round(min(perc)), "% to +", round(max(perc)), "%"))
+```
+
+The group's own HSI maps for each year, shown below, match the reproduction in @fig-grp-hsi. From these, the group mapped the percentage change in each cell between the first and last year, (2021 − 2014) / 2014 × 100. The change maps are not labelled with the variable, but computing this change on the HSI reproduces them: the Adriatic range (`r pc_rng("GSAs 17-18")`) matches the group's legend, and GSA 6 matches except for a few cells where the HSI is close to zero.
+
+```{r fig-grp-hsi-group}
+#| fig-cap: "The group's habitat suitability maps, 2014-2021 (Pamela Lattanzi)."
+#| fig-subcap:
+#|   - "GSA 6"
+#|   - "GSAs 17-18 (Adriatic)"
+#| layout-ncol: 2
+#| echo: false
+
+knitr::include_graphics(c("data/group/fig_hsi_6.png", "data/group/fig_hsi_1718.png"))
+```
+
+```{r fig-grp-perc-group}
+#| fig-cap: "The group's maps of percentage change in habitat suitability between 2014 and 2021 (Pamela Lattanzi). Red: higher suitability in 2021; blue: lower. Each map has its own colour scale."
+#| fig-subcap:
+#|   - "GSA 6"
+#|   - "GSAs 17-18 (Adriatic)"
+#| layout-ncol: 2
+#| echo: false
+
+knitr::include_graphics(c("data/group/fig_perc_6.png", "data/group/fig_1718_perc.png"))
+```
+
+```{r fig-grp-perc}
+#| fig-cap: "Change in habitat suitability between 2014 and 2021, both areas on the same scale. Top: percentage change, as in the group's maps (colour scale capped at ±25%; a few cells exceed it). Bottom: difference in HSI points, which avoids the large percentages produced where the 2014 HSI is close to zero."
+#| fig-width: 11
+#| fig-height: 9
+
+chg_map <- function(var, reg, view, lim, name) {
+  ggplot() + tile(filter(hsi_chg, region == reg), var) + land + view +
+    scale_fill_gradient2(low = pal_ocean[["mid"]], mid = "white", high = pal_ocean[["alert"]],
+                         midpoint = 0, limits = c(-lim, lim), oob = squish, name = name) +
+    labs(title = reg) + theme_map
+}
+d_lim <- max(abs(hsi_chg$diff))
+(chg_map("perc", "GSA 6", gsa6_view, 25, "Change in HSI (%)") |
+   chg_map("perc", "GSAs 17-18", adr_view, 25, "Change in HSI (%)")) /
+  (chg_map("diff", "GSA 6", gsa6_view, d_lim, "Difference in HSI (2021 − 2014)") |
+     chg_map("diff", "GSAs 17-18", adr_view, d_lim, "Difference in HSI (2021 − 2014)")) +
+  plot_layout(guides = "collect") & theme(legend.position = "right")
+```
+
+```{r tbl-grp-perc}
+#| code-summary: "Summary of the change by area"
+#| classes: tbl-compact
+
+kable(hsi_chg |> group_by(Area = region) |>
+        summarise(Cells = n(),
+                  `Median change (%)` = round(median(perc), 1),
+                  `Cells with lower HSI` = percent(mean(diff < 0), 1),
+                  `Median difference (HSI points)` = round(median(diff), 3),
+                  `Largest drop (HSI points)` = round(min(diff), 2)))
+```
+
+In GSA 6, suitability barely changes between 2014 and 2021 (median `r round(median(hsi_chg$perc[hsi_chg$region == "GSA 6"]), 1)`%): a slight gain over most of the shelf and slight losses along its shallow inner edge. In the Adriatic (median `r round(median(hsi_chg$perc[hsi_chg$region == "GSAs 17-18"]), 1)`%), suitability falls slightly over most of the northern basin and rises slightly in the central and southern basin, with the strongest increase in a small patch of the central Adriatic (around 14.8°E, 42.9°N). As the HSI only contains depth and bottom temperature, these maps show where bottom temperature differed between the two years.
+
+> **Discussion points.** (1) A percentage change of a 0-1 index rescaled to its minimum is unstable: where the 2014 HSI is close to zero, a tiny absolute change becomes a large percentage (up to `r round(max(hsi_chg$perc[hsi_chg$region == "GSA 6"]))`% in a GSA 6 cell). The strongest increase in the Adriatic, the central patch, is the same case: it almost disappears in HSI points (bottom row), while the loss over the northern basin, which has high suitability, becomes the main signal. The difference in HSI points is the more robust measure. (2) Comparing two single years mixes trend with year-to-year variability; a per-cell linear trend over 2014-2021 would be a better summary of change. (3) A fixed colour scale shared by both areas, and centred on zero, would make the group's two maps directly comparable.
 
 ## 3. Marine heatwaves and fleet behaviour
 
