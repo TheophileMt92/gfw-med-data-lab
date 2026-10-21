@@ -1,6 +1,6 @@
 ---
 title: "Red mullet in GSA 6 and the Adriatic"
-subtitle: "A spatio-temporal species distribution model: biomass, habitat suitability and overlap with trawling (report Section 2c)"
+subtitle: "A spatio-temporal species distribution model: biomass, habitat suitability and overlap with trawling"
 author: "climate-env-ais working group"
 date: "2026-10-21"
 date-format: "D MMMM YYYY"
@@ -49,13 +49,13 @@ num <- function(x, acc = 1) scales::comma(x, accuracy = acc)
 
 - Describe red mullet (*Mullus barbatus*) **biomass in space and time** in two areas
 - Express **habitat suitability on a 0-1 scale**
-- Then relate it to **fishing effort** and marine heatwaves
+- Then relate it to **trawling effort** (GFW AIS)
 
 **Data decisions**
 
 - Response: **biomass** (kg/km²) per MEDITS haul
 - **2014-2021**: no Croatian MEDITS survey in 2012-2013 (also avoids the early AIS ramp-up)
-- Bottom temperature, salinity, oxygen and SST matched to each haul (Copernicus)
+- Two covariates only: **bottom temperature** (Copernicus, matched to each haul) and **depth**
 :::
 ::: {.column width="50%"}
 :::: {.columns}
@@ -72,7 +72,7 @@ num <- function(x, acc = 1) scales::comma(x, accuracy = acc)
 Red mullet absent from `r pc(k$grp_absent[["GSA 6"]])` of GSA 6 hauls and `r pc(k$grp_absent[["GSAs 17-18"]])` of Adriatic hauls.
 
 ::: {.caveat}
-Two thin years: GSA 6 in **2020** (`r k$grp_thin_6` hauls, COVID-19) and the Adriatic in **2017** (`r k$grp_thin_1718` hauls).
+**Discussion point:** two thin years: GSA 6 in **2020** (`r k$grp_thin_6` hauls, COVID-19) and the Adriatic in **2017** (`r k$grp_thin_1718` hauls).
 :::
 :::
 ::::
@@ -80,35 +80,69 @@ Two thin years: GSA 6 in **2020** (`r k$grp_thin_6` hauls, COVID-19) and the Adr
 ## The model: sdmTMB
 
 :::: {.columns}
-::: {.column width="55%"}
-The fitting script is not shared yet, so the structure is **reconstructed from the saved predictions**:
+::: {.column width="52%"}
+<p style="text-align:center; font-size:1.15em; margin:0.6em 0 1em;">log(biomass) = **bottom temperature + depth** + **ω** (spatial) + **ε** (spatio-temporal, AR(1) by year)</p>
 
-<p style="text-align:center; font-size:1.15em; margin:1.2em 0;">log(biomass) = **depth + bottom temperature** + **ω** (spatial) + **ε** (spatio-temporal, by year)</p>
-
-- Fixed effects exactly linear (R² = 1 when refitted), **no year effect**
-- Year-to-year change comes only from **bottom temperature** and **ε**
-- Family and mesh not recoverable from the predictions
+- **Tweedie** observation model: zeros and skewed catches in one distribution
+- **ω**: persistent hotspots not explained by the covariates
+- **ε**: year-to-year departures from that pattern, correlated between years
+- Fitted separately in each area on an SPDE mesh (`r k$grp_fit_tab[["Mesh vertices"]][1]` and `r k$grp_fit_tab[["Mesh vertices"]][2]` vertices)
 :::
-::: {.column width="45%"}
+::: {.column width="48%"}
 | | GSA 6 | GSAs 17-18 |
 |---|---|---|
 | Per +100 m depth | −`r pc(k$grp_depth_drop[["GSA 6"]])` | −`r pc(k$grp_depth_drop[["GSAs 17-18"]])` |
-| Per +1 °C bottom temp. | `r pcs(k$grp_temp_rise[["GSA 6"]])` | `r pcs(k$grp_temp_rise[["GSAs 17-18"]])` |
+| Per +1 °C bottom temp. | `r pcs(k$grp_temp$per_c[1])` | `r pcs(k$grp_temp$per_c[2])` |
+| Spatial range | `r k$grp_fit_tab[["Range (km)"]][1]` km | `r k$grp_fit_tab[["Range (km)"]][2]` km |
 | Largest \|ε\| | `r num(k$grp_eps_max[["GSA 6"]], 0.1)` | `r num(k$grp_eps_max[["GSAs 17-18"]], 0.1)` |
 
 [Change in predicted biomass per unit of each covariate, on the response scale.]{.small .muted}
 :::
 ::::
 
+## Goodness of fit
+
+![](figures/fig-grp-fit-1.png){width="92%" fig-align="center"}
+
+:::: {.columns}
+::: {.column width="50%"}
+- Both models **converge** (positive-definite Hessian, all `sanity()` checks passed)
+- Residuals follow the normal line: the **Tweedie** model fits zeros and large catches
+:::
+::: {.column width="50%"}
+- Observed vs fitted: **r = `r num(k$grp_cor[["GSA 6"]], 0.01)`** (GSA 6) and **`r num(k$grp_cor[["GSAs 17-18"]], 0.01)`** (Adriatic), log scale
+- In-sample fit; **cross-validation** (`sdmTMB_cv()`) would test prediction to new hauls
+:::
+::::
+
+## Bottom temperature: two areas compared
+
+:::: {.columns}
+::: {.column width="58%"}
+![](figures/fig-grp-temp-1.png){width="100%"}
+:::
+::: {.column width="42%"}
+[`r pcs(k$grp_temp$per_c[2])`]{.big-number}
+[biomass per +1 °C in the Adriatic (95% CI `r pcs(k$grp_temp$lo[2])` to `r pcs(k$grp_temp$hi[2])`)]{.big-label}
+
+[`r pcs(k$grp_temp$per_c[1])`]{.big-number}
+[per +1 °C in GSA 6 (95% CI `r pcs(k$grp_temp$lo[1])` to `r pcs(k$grp_temp$hi[1])`): not significant]{.big-label}
+
+::: {.caveat}
+**Discussion point:** GSA 6 hauls span only `r sprintf("%.1f-%.1f", k$grp_temp$sbt_min[1], k$grp_temp$sbt_max[1])` °C (Adriatic `r sprintf("%.1f-%.1f", k$grp_temp$sbt_min[2], k$grp_temp$sbt_max[2])` °C), so the temperature effect is poorly constrained there and depth dominates.
+:::
+:::
+::::
+
 ## Predicted biomass: GSA 6
 
-![](figures/fig-grp-dens-6-1.png){width="92%" fig-align="center"}
+![](figures/fig-grp-dens-6-1.png){width="78%" fig-align="center"}
 
 [Highest on the inner shelf along the whole coast, dropping quickly offshore.]{.small .muted}
 
 ## Predicted biomass: Adriatic
 
-![](figures/fig-grp-dens-1718-1.png){width="88%" fig-align="center"}
+![](figures/fig-grp-dens-1718-1.png){width="74%" fig-align="center"}
 
 [Highest in the shallow northern basin and along the Croatian coast; a gentler depth gradient over a much wider shelf.]{.small .muted}
 
@@ -137,11 +171,11 @@ Sum of predicted biomass × cell area, per year
 [`r pcs(k$grp_idx_6_change)`]{.big-number}
 [GSA 6, 2015 → 2021 (Tweedie GAM of Section 2b: `r pcs(k$grp_gam_change / 100)` in density)]{.big-label}
 
-[`r pc(k$grp_idx_1718_rng[1])`-`r pc(k$grp_idx_1718_rng[2])`]{.big-number}
-[Adriatic, range relative to its mean]{.big-label}
+[`r pc(k$grp_idx_1718_rng[1])` to `r pc(k$grp_idx_1718_rng[2])`]{.big-number}
+[The Adriatic index fluctuates more, between `r pc(k$grp_idx_1718_rng[1])` and `r pc(k$grp_idx_1718_rng[2])` of its 2014-2021 mean]{.big-label}
 
 ::: {.caveat}
-Each area peaks in its **least-sampled year**. Index standard errors (`get_index()`) need the fitted model.
+**Discussion point:** each area peaks in its **least-sampled year**. Index standard errors (`get_index()`) would show how uncertain these years are.
 :::
 :::
 ::::
@@ -160,7 +194,7 @@ Each area peaks in its **least-sampled year**. Index standard errors (`get_index
 ::::
 
 ::: {.caveat}
-Linear effects (biomass ↑ with temperature, ↓ with depth) push the shallowest, warmest coastal cells beyond the sampled range. **Restrict the prediction grid to the sampled depth range.**
+**Discussion point:** linear effects (biomass ↑ with temperature, ↓ with depth) push the shallowest, warmest coastal cells beyond the sampled range. **Restrict the prediction grid to the sampled depth range.**
 :::
 
 ## Habitat suitability index (HSI)
@@ -180,7 +214,7 @@ Linear effects (biomass ↑ with temperature, ↓ with depth) push the shallowes
 :::
 ::: {.column width="50%"}
 ::: {.caveat}
-% change of a 0-1 index explodes where HSI ≈ 0 (up to `r pcs(k$grp_perc_max_6 / 100)` in one GSA 6 cell): use the **difference in HSI** and a **2014-2021 trend** rather than two years.
+**Discussion point:** the % change of a 0-1 index explodes where HSI ≈ 0 (up to `r pcs(k$grp_perc_max_6 / 100)` in one GSA 6 cell): use the **difference in HSI** and a **2014-2021 trend** rather than two years.
 :::
 :::
 ::::
@@ -189,7 +223,7 @@ Linear effects (biomass ↑ with temperature, ↓ with depth) push the shallowes
 
 :::: {.columns}
 ::: {.column width="55%"}
-![](data/group/correlation_map_2700.jpeg){width="100%"}
+![](data/group/correlation_map_2700.jpeg){width="86%" fig-align="center"}
 :::
 ::: {.column width="45%"}
 Local correlation between red mullet and **GFW trawling effort**, by year
@@ -199,31 +233,19 @@ Local correlation between red mullet and **GFW trawling effort**, by year
 - Adriatic: a positive band through the north-western and central basin every year; coastal edge negative
 
 ::: {.caveat}
-Method not yet shared (variables, window). In small windows, correlations near ±1 are common by chance: add a **significance test** or a **whole-area overlap measure**.
+**Discussion point:** in small windows, correlations near ±1 are common by chance: add a **significance test** or a **whole-area overlap measure**.
 :::
 :::
 ::::
 
 ## Next steps
 
-:::: {.columns}
-::: {.column width="50%"}
-**To share**
-
-1. sdmTMB fitting script (mesh, family, formula)
-2. Data preparation (`MB_*`, effort and prediction grids)
-3. HSI rescaling (to confirm)
-4. Correlation-map script
-:::
-::: {.column width="50%"}
-**To improve**
-
-- Index **standard errors**, especially for thin years
+- Index **standard errors** with `get_index()`, especially for the thinly sampled years
+- **Cross-validation** to test predictive skill
+- Add an **intercept or year effects** to the model formula
 - Prediction grid within the **sampled depth range**
-- HSI change as a **difference or trend**, not % between two years
+- Habitat change as an **HSI difference or 2014-2021 trend**, rather than % change between two years
 - Overlap with trawling: **significance** and a single summary per area and year
-:::
-::::
 
 ## Slides, report and code {.center}
 

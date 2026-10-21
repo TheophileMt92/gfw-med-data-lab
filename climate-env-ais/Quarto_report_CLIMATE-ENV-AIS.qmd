@@ -906,7 +906,7 @@ Across the `r fmt(nrow(mull.change6))` shelf and upper-slope cells predicted in 
 
 ## 2c. Red mullet: the group's spatio-temporal model (GSA 6 and Adriatic)
 
-On the morning of 21 October the working group extended the red mullet analysis to a second area, the Adriatic (GSAs 17-18), and moved to a spatio-temporal species distribution model. This section presents that work from the files shared in the group's `shared_data` folder. The model-fitting and data-preparation scripts have not been shared yet, so the model structure below is reconstructed from the saved predictions (see *How the model was reconstructed*).
+On the morning of 21 October the working group extended the red mullet analysis to a second area, the Adriatic (GSAs 17-18), and moved to a spatio-temporal species distribution model. This section presents that work from the files shared in the group's `shared_data` folder. The model structure was first reconstructed from the saved predictions (see *How the model was reconstructed*); the fitted model objects shared later in the afternoon (`fit_6.rds`, `fit_1718.rds`) confirm it and give the goodness of fit (see *Fitted models and goodness of fit*). The data-preparation script has not been shared yet.
 
 ### Aims and data decisions
 
@@ -961,6 +961,127 @@ kable(fe |> mutate(across(where(is.numeric), \(x) round(x, 4))) |> rename(Area =
 ```
 
 A linear function of depth and bottom temperature reproduces the fixed-effect predictions exactly (R² = 1) in both areas, with no separate year effect. On the response scale, biomass falls by `r percent(1 - exp(100 * fe[[3]][1]), 1)` per 100 m of depth in GSA 6 and by `r percent(1 - exp(100 * fe[[3]][2]), 1)` in the Adriatic, and rises by `r percent(exp(fe[[4]][1]) - 1, 1)` and `r percent(exp(fe[[4]][2]) - 1, 1)` per +1 °C of bottom temperature. Year-to-year change therefore comes only from bottom temperature and the spatio-temporal field. The observation family and the mesh are not recoverable from the predictions.
+
+### Fitted models and goodness of fit
+
+The fitted objects confirm the reconstruction (the per-°C and per-metre effects below match it). Both areas use the same **sdmTMB** model: a Tweedie observation model with a log link, the fixed effects `0 + scale(sbt) + scale(depth)`, a spatial random field and an AR(1) spatio-temporal field by year, on an SPDE mesh. They were fitted with sdmTMB 0.7.0. To compute residuals with the installed version, each model is refitted below on the same data and mesh; the estimates are identical to the shared objects.
+
+```{r grp-fit}
+#| code-summary: "Load the group's fitted models and refit them with the installed sdmTMB"
+#| cache: true
+
+library(sdmTMB)
+grp_fits <- list(`GSA 6` = readRDS(file.path("data/group", "fit_6.rds")),
+                 `GSAs 17-18` = readRDS(file.path("data/group", "fit_1718.rds")))
+
+refit <- function(f) {
+  d <- f$data[complete.cases(f$data[, c("biomass_kgkm2", "sbt", "depth")]), ]
+  mesh <- make_mesh(d, xy_cols = f$spde$xy_cols, mesh = f$spde$mesh)   # same mesh, hauls with complete covariates
+  sdmTMB(f$formula[[1]], data = d, mesh = mesh, time = "year",
+         family = tweedie(link = "log"), spatial = "on", spatiotemporal = "ar1")
+}
+grp_m <- lapply(grp_fits, refit)
+
+set.seed(1)
+grp_res <- bind_rows(lapply(names(grp_m), \(a) {
+  m <- grp_m[[a]]
+  tibble(region = a, obs = m$data$biomass_kgkm2,
+         fitted = exp(predict(m)$est),
+         resid = residuals(m, type = "mle-mvn"))
+}))
+```
+
+```{r tbl-grp-fit}
+#| code-summary: "Model summary by area"
+#| classes: tbl-compact
+
+fit_row <- function(a) {
+  m <- grp_m[[a]]; o <- grp_fits[[a]]   # estimates from the group's shared fit; convergence checked on the refit
+  fe <- tidy(o, conf.int = TRUE); rp <- tidy(o, "ran_pars", conf.int = TRUE)
+  g <- function(t, x = "estimate") rp[[x]][rp$term == t]
+  tibble(Area = a,
+         Hauls = nrow(m$data), `Mesh vertices` = m$spde$mesh$n,
+         `Bottom temp. (per SD)` = sprintf("%.2f [%.2f, %.2f]", fe$estimate[1], fe$conf.low[1], fe$conf.high[1]),
+         `Depth (per SD)` = sprintf("%.2f [%.2f, %.2f]", fe$estimate[2], fe$conf.low[2], fe$conf.high[2]),
+         `Range (km)` = round(g("range")), `σ ω` = round(g("sigma_O"), 2), `σ ε` = round(g("sigma_E"), 2),
+         `AR(1) ρ` = round(g("rho"), 2), `Tweedie p` = round(g("tweedie_p"), 2),
+         `Converged` = if (all(unlist(sanity(m, silent = TRUE)))) "yes" else "check")
+}
+grp_fit_tab <- bind_rows(lapply(names(grp_m), fit_row))
+kable(grp_fit_tab)
+```
+
+Both models converge cleanly (positive-definite Hessian, small gradients, all `sanity()` checks passed). Coefficients are on the scale of standardised covariates (per standard deviation), with 95% confidence intervals.
+
+```{r fig-grp-fit}
+#| fig-cap: "Goodness of fit of the group's models. Left: randomised quantile residuals (MCMC-free 'mle-mvn' residuals) against the normal distribution; points on the line indicate a well-specified observation model. Right: observed against fitted biomass at each haul (log scale), with the 1:1 line."
+#| fig-width: 11
+#| fig-height: 4.6
+
+grp_cols <- c(`GSA 6` = "#d9a520", `GSAs 17-18` = pal_ocean[["surface"]])
+p_qq <- ggplot(grp_res, aes(sample = resid, colour = region)) +
+  stat_qq(size = 0.8, alpha = 0.6) + stat_qq_line(colour = "grey40") +
+  facet_wrap(~region) + scale_colour_manual(values = grp_cols, guide = "none") +
+  labs(x = "Theoretical quantiles", y = "Residual quantiles") + theme_ocean()
+grp_cor <- grp_res |> group_by(region) |>
+  summarise(r = cor(log1p(obs), log1p(fitted)), .groups = "drop")
+p_of <- ggplot(grp_res, aes(fitted + 1, obs + 1, colour = region)) +
+  geom_abline(colour = "grey40") + geom_point(size = 0.8, alpha = 0.5) +
+  geom_text(data = grp_cor, aes(x = 1.5, y = 4000, label = sprintf("r = %.2f", r)),
+            hjust = 0, colour = "grey20", size = 3.5, inherit.aes = FALSE) +
+  scale_x_log10(labels = label_comma()) + scale_y_log10(labels = label_comma()) +
+  facet_wrap(~region) + scale_colour_manual(values = grp_cols, guide = "none") +
+  labs(x = "Fitted biomass + 1 (kg/km²)", y = "Observed biomass + 1 (kg/km²)") + theme_ocean()
+p_qq | p_of
+```
+
+> **Discussion point: possible misalignment in the Adriatic fit.** The Adriatic data hold `r sum(is.na(grp_fits[["GSAs 17-18"]]$data$sbt))` hauls with missing bottom temperature. The mesh was built on all `r nrow(grp_fits[["GSAs 17-18"]]$data)` hauls, but the model drops the incomplete ones, so after the first missing value the hauls and their mesh locations can fall out of step. Refitting on complete hauls with the same mesh gives a stronger temperature effect (`r round(tidy(grp_m[["GSAs 17-18"]])$estimate[1], 2)` per SD instead of `r round(tidy(grp_fits[["GSAs 17-18"]])$estimate[1], 2)`). The coefficients reported here are the group's; the residual checks use the refit. Building the mesh after removing incomplete hauls would fix this.
+
+Residuals follow the normal line closely in both areas, so the Tweedie observation model fits the zeros and the skewed catches well. Fitted and observed biomass are strongly correlated (r = `r round(grp_cor$r[1], 2)` in GSA 6 and `r round(grp_cor$r[2], 2)` in the Adriatic, on the log scale). These are in-sample fits that include the random fields, so they describe how well the model reproduces the data rather than how well it predicts new hauls; a cross-validation (`sdmTMB_cv()`) would test the latter.
+
+#### Effect of bottom temperature in the two areas
+
+```{r fig-grp-temp}
+#| fig-cap: "Effect of bottom temperature on red mullet biomass in the group's models: predicted biomass relative to the mean bottom temperature of each area's hauls, at constant depth, with 95% confidence bands, over the range of bottom temperatures sampled in each area."
+#| fig-width: 9
+#| fig-height: 4.6
+
+temp_eff <- bind_rows(lapply(names(grp_m), \(a) {
+  m <- grp_m[[a]]; fe <- tidy(grp_fits[[a]])
+  mu <- mean(m$data$sbt); sdv <- sd(m$data$sbt)
+  b <- fe$estimate[1] / sdv; se <- fe$std.error[1] / sdv
+  tibble(region = a, sbt = seq(min(m$data$sbt), max(m$data$sbt), length.out = 100)) |>
+    mutate(d = sbt - mu, rel = exp(b * d),
+           lo = exp(b * d - 1.96 * se * abs(d)), hi = exp(b * d + 1.96 * se * abs(d)))
+}))
+grp_temp <- bind_rows(lapply(names(grp_m), \(a) {
+  m <- grp_m[[a]]; fe <- tidy(grp_fits[[a]], conf.int = TRUE); sdv <- sd(m$data$sbt)
+  tibble(region = a, per_c = exp(fe$estimate[1] / sdv) - 1,
+         lo = exp(fe$conf.low[1] / sdv) - 1, hi = exp(fe$conf.high[1] / sdv) - 1,
+         sbt_min = min(m$data$sbt), sbt_max = max(m$data$sbt))
+}))
+
+ggplot(temp_eff, aes(sbt, rel, colour = region, fill = region)) +
+  geom_hline(yintercept = 1, colour = "grey70") +
+  geom_ribbon(aes(ymin = lo, ymax = hi), alpha = 0.2, colour = NA) +
+  geom_line(linewidth = 1) +
+  scale_colour_manual(values = grp_cols, name = NULL) + scale_fill_manual(values = grp_cols, name = NULL) +
+  scale_y_continuous(labels = label_number(suffix = "×")) +
+  labs(x = "Bottom temperature (°C)", y = "Biomass relative to the area's mean temperature") + theme_ocean()
+```
+
+```{r tbl-grp-temp}
+#| code-summary: "Bottom temperature effect per °C"
+#| classes: tbl-compact
+
+kable(grp_temp |> transmute(Area = region,
+                            `Change in biomass per +1 °C` = sprintf("%s [%s, %s]", percent(per_c, 1), percent(lo, 1), percent(hi, 1)),
+                            `Sampled bottom temperature (°C)` = sprintf("%.1f-%.1f", sbt_min, sbt_max)))
+```
+
+Bottom temperature has a clear positive effect in the Adriatic: biomass rises by `r percent(grp_temp$per_c[2], 1)` per +1 °C, and the confidence interval is well above zero. In GSA 6 the estimate is similar per degree (`r percent(grp_temp$per_c[1], 1)`), but the interval includes zero, so the effect is not significant there. GSA 6 hauls span a much narrower range of bottom temperatures (`r sprintf("%.1f-%.1f", grp_temp$sbt_min[1], grp_temp$sbt_max[1])` °C against `r sprintf("%.1f-%.1f", grp_temp$sbt_min[2], grp_temp$sbt_max[2])` °C), which limits how well the effect can be estimated, and depth dominates there.
+
+> **Discussion point: no intercept.** The formula `0 + scale(sbt) + scale(depth)` has no intercept, so the mean level of log biomass has to be absorbed by the spatial random field. This inflates the spatial field (σ ω = `r grp_fit_tab[["σ ω"]][1]` in GSA 6) and makes ω harder to interpret as hotspots. Adding the intercept (or a year factor, `0 + as.factor(year) + ...`, the usual choice for an index) is recommended.
 
 ### Predicted biomass
 
@@ -1055,7 +1176,7 @@ ggplot(idx_g, aes(year, rel, colour = region)) +
 
 The GSA 6 index stays within ±`r percent(max(abs(idx_g$rel[idx_g$region == "GSA 6" & idx_g$year != 2020] - 1)), 1)` of its mean in every year except 2020, and changes by `r percent(with(filter(idx_g, region == "GSA 6"), biomass_t[year == 2021] / biomass_t[year == 2015] - 1), 1)` between 2015 and 2021. The Tweedie GAM of Section 2b gives a median change in density of `r percent(median(mull.change6$perc.change.env, na.rm = TRUE) / 100, 1)` over the same years: the two models differ in response (biomass vs numbers), period and structure, but neither suggests an increase in GSA 6. The Adriatic index fluctuates more, between `r percent(min(idx_g$rel[idx_g$region == "GSAs 17-18"]), 1)` and `r percent(max(idx_g$rel[idx_g$region == "GSAs 17-18"]), 1)` of its mean.
 
-> **Discussion point: index peaks in thinly sampled years.** The highest index in each area falls in its least-sampled year: GSA 6 in 2020 and the Adriatic in 2017. With few hauls, the spatio-temporal field for that year is poorly constrained, so these peaks may reflect sampling rather than biomass. sdmTMB's `get_index()` returns the index with standard errors, which would show how uncertain these years are; it needs the fitted model object, so it can be run once the model script is shared.
+> **Discussion point: index peaks in thinly sampled years.** The highest index in each area falls in its least-sampled year: GSA 6 in 2020 and the Adriatic in 2017. With few hauls, the spatio-temporal field for that year is poorly constrained, so these peaks may reflect sampling rather than biomass. sdmTMB's `get_index()` returns the index with standard errors, which would show how uncertain these years are; now that the fitted models are shared, this is the next step.
 
 > **Discussion point: extrapolation in GSA 6.** The GSA 6 prediction grid reaches `r round(min(pred_g$depth[pred_g$region == "GSA 6"]))` m depth and `r round(max(pred_g$sbt[pred_g$region == "GSA 6"]), 1)` °C bottom temperature, while the hauls cover `r floor(min(mb_g$depth[mb_g$region == "GSA 6"]))`-`r ceiling(max(mb_g$depth[mb_g$region == "GSA 6"]))` m and at most `r round(max(mb_g$sbt[mb_g$region == "GSA 6"], na.rm = TRUE), 1)` °C. With linear, positive temperature and negative depth effects, the shallowest, warmest coastal cells get the highest predicted biomass by extrapolation: cells shallower than the shallowest haul make up `r percent(with(filter(pred_g, region == "GSA 6"), mean(depth < min(mb_g$depth[mb_g$region == "GSA 6"]))), 1)` of the GSA 6 grid but hold `r percent(with(filter(pred_g, region == "GSA 6"), sum((dens * cell_km2)[depth < min(mb_g$depth[mb_g$region == "GSA 6"])]) / sum(dens * cell_km2)), 1)` of its predicted biomass. This is the same issue as for total fish in Section 2a; restricting the prediction grid to the sampled depth range would avoid it.
 
@@ -1093,7 +1214,7 @@ kable(hsi_g |> group_by(Area = region, year) |> summarise(hsi = round(mean(hsi),
 
 Suitability is highest on the shallow inner shelf in both areas. In the Adriatic, the warm, shallow northern basin scores high almost everywhere, while the deeper south scores low. Year-to-year differences come only from bottom temperature, since depth is fixed.
 
-> **Still to share:** the sdmTMB model-fitting script (mesh, family, formula), the data-preparation script that builds `MB_*.rds` and the effort and prediction grids, and confirmation of the HSI rescaling. With these, the index uncertainty could be added and the HSI definition confirmed.
+> **Still to share:** the data-preparation script that builds `MB_*.rds` and the effort and prediction grids, and confirmation of the HSI rescaling. With the fitted models now shared, the index uncertainty can be computed with `get_index()`.
 
 ### Change in habitat suitability, 2014 to 2021
 
@@ -1515,6 +1636,9 @@ report_numbers <- list(
   grp_perc_med     = tapply(hsi_chg$perc, hsi_chg$region, median),
   grp_hsi_lower    = tapply(hsi_chg$diff < 0, hsi_chg$region, mean),
   grp_perc_max_6   = max(hsi_chg$perc[hsi_chg$region == "GSA 6"]),
+  grp_fit_tab      = grp_fit_tab,
+  grp_temp         = grp_temp,
+  grp_cor          = setNames(grp_cor$r, grp_cor$region),
   rendered         = format(Sys.time(), "%d %b %Y, %H:%M")
 )
 saveRDS(report_numbers, "outputs/report_numbers.rds")
