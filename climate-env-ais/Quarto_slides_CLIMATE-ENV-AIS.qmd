@@ -93,7 +93,7 @@ The 2012-2014 rise reflects **AIS adoption**, not more fishing. Comparisons span
 - SST smooth already shrunk to zero by `select = TRUE`
 
 ::: {.caveat}
-**Log scale:** predictions are log(N/km²), so the group's % change was computed on logs. Back-transformed, the median cell changes by **`r pcs(k$tf_change_bt)`**, not `r pcs(k$tf_change_log)`, from 2012 to 2021.
+Predicted abundance 2012-2021: median **`r pcs(k$tf_change)`** per cell (`r pc(k$tf_decline)` of cells decline), partly reflecting near-zero AIS effort in 2012.
 :::
 :::
 ::::
@@ -171,9 +171,8 @@ Mean of three 0-1 scores: **heatwave exposure + habitat loss + fishing pressure*
 ::: {.caveat}
 - Exposure from 2021 only: **`r pc(k$cfvi_exp_zero)`** of cells score exactly 0
 - Pressure very skewed: median score `r num(k$cfvi_press_med, 0.01)`
-- Sensitivity inherits the log-scale issue
 
-**Better:** 2015-2021 mean exposure, log effort, back-transformed change, test the weights
+**Better:** 2015-2021 mean exposure, log effort, test the weights
 :::
 :::
 ::::
@@ -185,7 +184,7 @@ Mean of three 0-1 scores: **heatwave exposure + habitat loss + fishing pressure*
 **Fix in the existing pipeline**
 
 1. **AIS ramp-up:** start in 2015 or normalise effort per vessel
-2. **Log scale:** back-transform before computing change
+2. **Extrapolation:** predict in the survey months and sampled depth range
 3. **Zeros:** same treatment of unmatched effort in fitting, prediction and averaging
 4. **Index design:** align time windows, test transformation and weights
 :::

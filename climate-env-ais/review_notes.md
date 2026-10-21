@@ -1,7 +1,7 @@
 # climate-env-ais: review notes
 
 Prepared by Théophile Mouton for the climate-env-ais working group, Global Fishing Watch Mediterranean Data Lab.
-**Last updated: 20 Oct 2026, 18:44 (Rome time).**
+**Last updated: 21 Oct 2026, 12:47 (Rome time).**
 
 **Live report: [Climate, environment and AIS fishing effort in GSA 6](https://theophilemt92.github.io/gfw-med-data-lab/climate-env-ais/Quarto_report_CLIMATE-ENV-AIS.html)**
 
@@ -12,7 +12,7 @@ A downloadable copy (`Quarto_report_CLIMATE-ENV-AIS.html`) and its Quarto source
 All steps focus on **GSA 6 (northern Spain)** and **trawlers**.
 
 1. **Data exploration** (`scripts/1_data exploration.R`): MEDITS trawl survey (2012-2021) plus Copernicus environmental variables at each haul. Yearly 0.1° trawler fishing hours are pulled with `gfwr` and joined to the hauls. Output: `data/processed/MEDITS_and_environment.csv`.
-2. **SDM, total fish abundance** (`scripts/2_SDMs.R`, report Section 2a): GAM of log total fish abundance (N/km²) against bottom temperature, salinity, chlorophyll and fishing hours. Predicts July abundance on the hindcast grid for every year, then maps the 2012 to 2021 change.
+2. **SDM, total fish abundance** (`scripts/2_SDMs.R`, report Section 2a): GAM of log total fish abundance (N/km²) against bottom temperature, salinity, chlorophyll and fishing hours. Predicts July abundance on the hindcast grid for every year, then maps the 2012 to 2021 change (back-transformed to N/km² in the report).
 3. **SDM, red mullet** (new, report Section 2b): the group's focal species, *Mullus barbatus* (`MULLBAR`). See below.
 4. **Marine heatwaves (MHW)** (`scripts/3_MHW.R`): `heatwaveR` detection on daily SST (Hobday et al. 2016), summer events only. Compares summer trawler effort between MHW years (2017, 2018, 2020) and non-MHW years (2013, 2014, 2016), using daily 0.01° `gfwr` data clipped to GSA 6.
 5. **Climate-Fisheries Vulnerability Index (CFVI)** (`scripts/4_Vulnerability Index.R`): mean of three min-max scaled scores: MHW exposure, habitat loss (total fish) and fishing pressure. Hotspots off Cap de Creus/Roses and along the Ebro and Valencia coast.
@@ -50,11 +50,10 @@ At MEDITS hauls, the share with matched AIS trawler effort rises from **49% in 2
 - **MHW comparison**: the non-MHW years (2013, 2014) are low-AIS years, so higher effort in MHW years is almost guaranteed (56% of cells show more effort in MHW summers).
 - **Possible fixes**: drop 2012-2014, use effort per vessel, or pick contrasting years from 2015 onward. GSA 6 mean cumulative MHW intensity was 0 in 2016 and 46.6 in 2017 (highest), with 19.0 in 2015 and 8.3 in 2019.
 
-### 2. Total fish SDM predictions are on the log scale but treated as abundance
+### 2. Total fish SDM: back-transformation (fixed in the report) and July extrapolation
 
-- `fit` is log(N/km²). The 2012 and 2021 maps then apply `log10(fit + 1)`: a log of a log.
-- `perc.change` is a percent change of a log value, compressed to about ±20%, and it feeds the CFVI sensitivity score. Back-transformed, the median cell changes by 34% (not 3%) from 2012 to 2021, with some cells more than tripling.
-- Fix: back-transform with `exp()` before computing change, or use a model on the response scale (as in the red mullet section).
+- **Fixed:** the group's change maps and `perc.change` were computed on log(N/km²). The report now back-transforms predictions (N/km² = exp(fit)) before mapping and computing change, and the vulnerability index uses the corrected change. The corrected table is `outputs/fish.change6_abundance.csv`; the group's `fish.change6.csv` is left untouched.
+- **Still open:** the model is fitted on May-June hauls (all deeper than 35 m, bottom temperature ≤ 17.2 °C) but predicts July over the whole grid. Shallow coastal cells reach 26.9 °C in July, and the rising bottom-temperature smooth then gives implausible abundances (up to ~10^11 per km²). About 11% of grid-year predictions are outside the sampled bottom-temperature range; the report greys them out and excludes them from the change summary. Predicting for June and within the sampled depth range would avoid this.
 
 ### 3. Model details for the total fish SDM
 
@@ -73,7 +72,7 @@ At MEDITS hauls, the share with matched AIS trawler effort rises from **49% in 2
 - Exposure uses 2021 only, a weak MHW year: 71% of cells score exactly 0.
 - Sensitivity uses the 2012 to 2021 change.
 - Pressure uses raw 2021 hours, very skewed (median 553, max 7,097), so min-max scaling squashes most cells (median pressure score 0.08).
-- More defensible: mean exposure over 2015-2021, log-transformed effort, back-transformed habitat change, and a sensitivity analysis on the weights.
+- More defensible: mean exposure over 2015-2021, log-transformed effort, habitat change from within the sampled range only, and a sensitivity analysis on the weights.
 
 ### 6. Smaller points
 

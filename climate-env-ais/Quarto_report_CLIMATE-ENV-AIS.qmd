@@ -82,7 +82,7 @@ This report brings together the four exercises of the working group into one rep
 | Step | Script | Question | Main output |
 |---|---|---|---|
 | 1 | `scripts/1_data exploration.R` | What do the survey, environmental and AIS data look like, and how do they join? | `data/processed/MEDITS_and_environment.csv` |
-| 2a | `scripts/2_SDMs.R` | How does total fish abundance relate to the environment, and how has habitat suitability changed 2012-2021? | `outputs/Final_gam_prediction.csv`, `outputs/fish.change6.csv` |
+| 2a | `scripts/2_SDMs.R` | How does total fish abundance relate to the environment, and how has habitat suitability changed 2012-2021? | `outputs/Final_gam_prediction.csv`, `outputs/fish.change6_abundance.csv` |
 | 2b | Section 2b of this report | The same question for red mullet (*Mullus barbatus*), the group's focal species | `outputs/MULLBAR_gam_prediction_GSA6.csv`, `outputs/MULLBAR_change_GSA6.csv` |
 | 3 | `scripts/3_MHW.R` | Where and when do marine heatwaves occur, and does trawling differ in heatwave summers? | `outputs/MHW_gsa6.csv`, `outputs/fishing_change_MHW.csv` |
 | 4 | `scripts/4_Vulnerability Index.R` | Which areas combine heatwave exposure, habitat loss and fishing pressure? | `outputs/CFVI_GSA6.csv` |
@@ -559,58 +559,91 @@ fish.pred6 <- new.env6 |>
   mutate(fit = gam.pred$fit, se.fit = gam.pred$se.fit,
          lwr = fit - 1.96 * se.fit, upr = fit + 1.96 * se.fit)
 write.table(fish.pred6, "outputs/Final_gam_prediction.csv", sep = ";", row.names = FALSE)
-
-fish.change6 <- fish.pred6 |>
-  filter(year %in% c(2012, 2021)) |>
-  select(grid.id, grid.X, grid.Y, year, fit) |>
-  pivot_wider(names_from = year, values_from = fit, names_prefix = "fit_") |>
-  mutate(difference  = fit_2021 - fit_2012,
-         perc.change = 100 * (fit_2021 - fit_2012) / fit_2012)
-write.csv(fish.change6, "outputs/fish.change6.csv", row.names = FALSE)
 ```
 
+Because the model is fitted to log abundance, `fit` is on the log scale. Predictions are back-transformed to abundance (N/km² = exp(fit)) before mapping and before computing change between years. The usual lognormal bias correction, exp(σ²/2), multiplies every prediction by the same constant, so it cancels in percentage change and is omitted here.
+
 ```{r fig-pred}
-#| fig-cap: "Predicted July fish abundance (log N/km²) in GSA 6, 2012-2021."
+#| fig-cap: "Predicted July fish abundance (N/km², log colour scale) in GSA 6, 2012-2021. Grey cells have a bottom temperature outside the range of the GSA 6 hauls used to fit the model (extrapolation)."
 #| fig-width: 11
 #| fig-height: 6
 
 fish.pred6 <- read.csv("outputs/Final_gam_prediction.csv", sep = ";")
 
+# Flag grid cells whose bottom temperature lies outside the range of the fitting data.
+# Bottom temperature is the only strong, non-linear term, and the only one whose
+# extrapolation produces implausible abundances; the other smooths are nearly flat.
+bt_range <- range(fish6$botTemp)
+fish.pred6 <- fish.pred6 |>
+  mutate(N = exp(fit),
+         extrapolated = botTemp < bt_range[1] | botTemp > bt_range[2])
+
+N_lims <- quantile(fish.pred6$N[!fish.pred6$extrapolated], c(0.01, 0.99))
+
 ggplot(fish.pred6) + land +
-  geom_point(aes(grid.X, grid.Y, colour = fit), size = 0.45) +
+  geom_point(data = filter(fish.pred6, extrapolated), aes(grid.X, grid.Y),
+             colour = "grey75", size = 0.45) +
+  geom_point(data = filter(fish.pred6, !extrapolated), aes(grid.X, grid.Y, colour = N),
+             size = 0.45) +
   scale_colour_gradientn(colours = c("lightyellow", "gold", "orange", "red", "darkred"),
-                         name = "log(N/km²)") +
+                         trans = "log10", limits = N_lims, oob = squish,
+                         labels = label_comma(), name = "Predicted N/km²") +
+  guides(colour = guide_colourbar(barwidth = unit(16, "lines"), barheight = unit(0.6, "lines"),
+                                  title.position = "top", title.hjust = 0.5)) +
   gsa6_view + facet_wrap(~year, ncol = 5) + theme_map
 ```
 
+```{r step2-change}
+#| dependson: "fig-pred"
+#| code-summary: "Change in predicted abundance 2012-2021, on the abundance scale"
+
+fish.change6 <- fish.pred6 |>
+  filter(year %in% c(2012, 2021)) |>
+  select(grid.id, grid.X, grid.Y, year, N, extrapolated) |>
+  pivot_wider(names_from = year, values_from = c(N, extrapolated)) |>
+  mutate(difference   = N_2021 - N_2012,
+         perc.change  = 100 * (N_2021 / N_2012 - 1),
+         extrapolated = extrapolated_2012 | extrapolated_2021) |>
+  select(-extrapolated_2012, -extrapolated_2021)
+
+# The group's outputs/fish.change6.csv is left untouched; the corrected table is saved alongside it
+write.csv(fish.change6, "outputs/fish.change6_abundance.csv", row.names = FALSE)
+```
+
 ```{r fig-habitat-change}
-#| fig-cap: "Group output: predicted abundance in 2012 and 2021, absolute difference and percentage change."
-#| out-width: "90%"
+#| dependson: "step2-change"
+#| fig-cap: "Predicted total fish abundance in 2012 and 2021 (N/km², log colour scale) and percentage change 2012-2021. Grey cells are extrapolated in at least one of the two years."
+#| fig-width: 12
+#| fig-height: 5.5
 
-include_graphics("outputs/Habitat_suitability_change.png")
+ok <- filter(fish.change6, !extrapolated)
+ex <- filter(fish.change6, extrapolated)
+chg_lim <- quantile(abs(ok$perc.change), 0.98, na.rm = TRUE)
+
+change_map <- function(var, title, scale) {
+  ggplot() + land +
+    geom_point(data = ex, aes(grid.X, grid.Y), colour = "grey75", size = 0.5) +
+    geom_point(data = ok, aes(grid.X, grid.Y, colour = .data[[var]]), size = 0.5) +
+    scale + labs(title = title) + gsa6_view + theme_map
+}
+bar  <- guide_colourbar(barwidth = unit(12, "lines"), barheight = unit(0.6, "lines"),
+                        title.position = "top", title.hjust = 0.5)
+dens <- scale_colour_gradientn(colours = c("lightyellow", "gold", "orange", "red", "darkred"),
+                               trans = "log10", limits = N_lims, oob = squish,
+                               breaks = c(3000, 10000, 30000, 1e5), labels = label_comma(),
+                               name = "N/km²", guide = bar)
+
+(change_map("N_2012", "2012", dens) + change_map("N_2021", "2021", dens) +
+ change_map("perc.change", "% change 2012-2021",
+            scale_colour_gradient2(low = pal_ocean[["mid"]], mid = "white", high = pal_ocean[["alert"]],
+                                   midpoint = 0, limits = c(-chg_lim, chg_lim), oob = squish,
+                                   name = "% change", guide = bar))) +
+  plot_layout(guides = "collect") & theme(legend.position = "bottom")
 ```
 
-> **Discussion point: log scale.** The model is fitted on log abundance, so `fit` is already log(N/km²). In the figure above, the 2012 and 2021 panels apply `log10(fit + 1)` on top, and `perc.change` is a percentage change of log values. Back-transforming before comparing gives the change in abundance itself, shown below.
+Across the `r fmt(sum(!fish.change6$extrapolated))` grid cells within the sampled bottom-temperature range in both years (of `r fmt(nrow(fish.change6))`), the median change in predicted total fish abundance from 2012 to 2021 is `r percent(median(ok$perc.change) / 100, 1)`, and `r percent(mean(ok$perc.change < 0), 1)` of cells decline. Changes this large over a decade are unlikely to be purely environmental: the 2012 predictions use near-zero AIS effort (Step 1), so part of the contrast comes from the fishing-hours smooth.
 
-```{r fig-backtransform}
-#| fig-cap: "Percentage change in predicted abundance 2012-2021 computed on the log scale (as in the group output) and after back-transformation."
-#| fig-width: 9
-#| fig-height: 4
-
-fish.change6 <- read.csv("outputs/fish.change6.csv") |>
-  mutate(perc.change.bt = 100 * (exp(difference) - 1))
-
-fish.change6 |>
-  select(`Log scale (group output)` = perc.change,
-         `Back-transformed` = perc.change.bt) |>
-  pivot_longer(everything()) |>
-  ggplot(aes(value, fill = name)) +
-  geom_histogram(bins = 50, alpha = 0.75, position = "identity") +
-  scale_fill_manual(values = c(pal_ocean[["accent"]], pal_ocean[["sand"]]), name = NULL) +
-  labs(x = "% change 2012 to 2021", y = "Grid cells") + theme_ocean()
-```
-
-On the abundance scale, the median cell changes by `r percent(median(fish.change6$perc.change.bt, na.rm = TRUE) / 100, 1)` between 2012 and 2021, against `r percent(median(fish.change6$perc.change, na.rm = TRUE) / 100, 1)` on the log scale, with some cells more than tripling. Changes this large over a decade are unlikely to be purely environmental: the 2012 predictions use near-zero AIS effort (Step 1), so part of the contrast comes from the fishing-hours smooth.
+> **Discussion point: extrapolation in July.** The model is fitted on MEDITS hauls from May and June, all deeper than `r floor(min(fish6$MEAN_DEPTH))` m, but predicts for July over the whole grid. In shallow coastal cells, July bottom temperature reaches `r round(max(fish.pred6$botTemp), 1)` °C, against a maximum of `r round(bt_range[2], 1)` °C in the fitting data, and the rising bottom-temperature smooth then produces implausibly high abundances (up to `r format(signif(max(fish.pred6$N), 1), big.mark = ",", scientific = TRUE)` per km²). `r percent(mean(fish.pred6$extrapolated), 1)` of grid-year predictions fall outside the sampled bottom-temperature range; they are shown in grey and excluded from the change summary above. Predicting for June, as in Section 2b, and restricting the grid to the sampled depth range would avoid most of this.
 
 ## 2b. Species distribution model: red mullet
 
@@ -1036,10 +1069,11 @@ Of the cells fished in at least one period, `r fmt(nrow(fishing.change))` were f
 Vulnerability is classically framed as exposure plus sensitivity minus adaptive capacity. The Climate-Fisheries Vulnerability Index (CFVI) combines three indicators, each rescaled to 0-1 and averaged with equal weights:
 
 - **Exposure**: summer cumulative MHW intensity in 2021.
-- **Sensitivity**: loss of predicted fish abundance 2012-2021 (the sign is flipped so that habitat loss raises vulnerability).
+- **Sensitivity**: percentage change in predicted fish abundance 2012-2021, on the abundance scale (the sign is flipped so that habitat loss raises vulnerability).
 - **Pressure**: AIS trawler fishing hours in 2021.
 
 ```{r step4-cfvi}
+#| dependson: ["fig-pred", "step2-change"]
 #| code-summary: "Build the index from the saved outputs"
 
 norm <- function(x) { rng <- range(x, na.rm = TRUE); (x - rng[1]) / (rng[2] - rng[1]) }
@@ -1047,7 +1081,7 @@ norm <- function(x) { rng <- range(x, na.rm = TRUE); (x - rng[1]) / (rng[2] - rn
 cfvi <- mhw.year |>
   filter(YEAR == 2021) |>
   select(grid.id, grid.X, grid.Y, mhw_cum_intensity) |>
-  left_join(select(fish.change6, grid.id, perc.change), by = "grid.id") |>
+  left_join(select(fish.change6, grid.id, perc.change), by = "grid.id") |>  # back-transformed change
   left_join(fish.pred6 |> filter(year == 2021) |>
               select(grid.id, fishing_pressure = fishing_hours), by = "grid.id") |>
   mutate(exposure    = norm(mhw_cum_intensity),
@@ -1059,6 +1093,7 @@ cfvi <- mhw.year |>
 ```
 
 ```{r fig-cfvi}
+#| dependson: "step4-cfvi"
 #| fig-cap: "The three CFVI components and the combined index for GSA 6."
 #| fig-width: 11
 #| fig-height: 9
@@ -1077,6 +1112,7 @@ ggplot(cfvi_long) + land +
 ```
 
 ```{r tbl-cfvi}
+#| dependson: "step4-cfvi"
 #| code-summary: "Distribution of the index components"
 #| classes: tbl-compact
 
@@ -1090,14 +1126,14 @@ kable(cfvi_sum |> mutate(median = round(median, 2), `share zero` = percent(`shar
 
 The highest index values sit off the northern Catalan coast (Cap de Creus to Roses) and in nearshore cells off the Ebro delta and Valencia, where moderate heatwave exposure overlaps with heavy trawling and predicted abundance loss.
 
-> **Discussion point: time windows and scaling.** Exposure uses a single, mild heatwave year: `r percent(mean(cfvi$exposure == 0, na.rm = TRUE), 1)` of cells score exactly 0, so the index is mostly driven by pressure and sensitivity in the rest of GSA 6. Pressure is very skewed and min-max scaling squashes most cells near 0. Sensitivity inherits the log-scale issue of Step 2. More defensible choices: mean exposure over 2015-2021, log-transformed effort, back-transformed habitat change, and a check of how the hotspots move under different weights.
+> **Discussion point: time windows and scaling.** Exposure uses a single, mild heatwave year: `r percent(mean(cfvi$exposure == 0, na.rm = TRUE), 1)` of cells score exactly 0, so the index is mostly driven by pressure and sensitivity in the rest of GSA 6. Pressure is very skewed and min-max scaling squashes most cells near 0. Sensitivity includes the extrapolated coastal cells of Step 2. More defensible choices: mean exposure over 2015-2021, log-transformed effort, habitat change from within the sampled range only, and a check of how the hotspots move under different weights.
 
 ## Summary and next steps
 
 The pipeline links survey, environmental, heatwave and AIS data into a coherent spatial workflow. Before interpreting the results, four points are worth addressing as a group:
 
 1. **AIS ramp-up**: start comparisons in 2015, or normalise effort per vessel, so that changes in AIS coverage are not read as changes in fishing.
-2. **Log scale**: back-transform SDM predictions before computing habitat change and the sensitivity score.
+2. **Extrapolation**: predict in the survey months (May-June) and within the sampled depth range, so that habitat change and the sensitivity score are not driven by out-of-range coastal cells.
 3. **Zeros**: treat unmatched hauls and unfished cells consistently as zero effort in fitting, prediction and averaging.
 4. **Index design**: align the time windows of the three CFVI components and test sensitivity to transformation and weights.
 
@@ -1110,7 +1146,7 @@ Smaller fixes (grid alignment in the haul join, MHW baseline length, weighted de
 #| cache: false
 
 # Share this report's figures and key numbers with the slides
-# (slides/Quarto_slides_CLIMATE-ENV-AIS.qmd reads figures/ and outputs/report_numbers.rds).
+# (Quarto_slides_CLIMATE-ENV-AIS.qmd reads figures/ and outputs/report_numbers.rds).
 dir.create("figures", showWarnings = FALSE)
 fig_dir <- dirname(knitr::fig_path(""))
 invisible(file.copy(list.files(fig_dir, pattern = "\\.png$", full.names = TRUE),
@@ -1131,8 +1167,10 @@ report_numbers <- list(
   gam2_dev         = summary(gam2)$dev.expl,
   gam2_p_fishing   = summary(gam2)$s.table["s(fishing_hours)", 4],
   kcheck_min_p     = min(kc$`p-value`),
-  tf_change_log    = median(fish.change6$perc.change, na.rm = TRUE),
-  tf_change_bt     = median(fish.change6$perc.change.bt, na.rm = TRUE),
+  tf_cells         = sum(!fish.change6$extrapolated),
+  tf_change        = median(fish.change6$perc.change[!fish.change6$extrapolated]),
+  tf_decline       = mean(fish.change6$perc.change[!fish.change6$extrapolated] < 0),
+  tf_extrap        = mean(fish.pred6$extrapolated),
   mb_present       = sum(mull6$present),
   mb_hauls         = nrow(mull6),
   mb_vif_max       = max(vif_manual(mb_vars)),
