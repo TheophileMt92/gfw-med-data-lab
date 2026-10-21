@@ -908,13 +908,6 @@ Across the `r fmt(nrow(mull.change6))` shelf and upper-slope cells predicted in 
 
 On the morning of 21 October the working group extended the red mullet analysis to a second area, the Adriatic (GSAs 17-18), and moved to a spatio-temporal species distribution model. This section presents that work from the files shared in the group's `shared_data` folder. The model-fitting and data-preparation scripts have not been shared yet, so the model structure below is reconstructed from the saved predictions (see *How the model was reconstructed*).
 
-| Contributor | Contribution (21 Oct) |
-|---|---|
-| Walter Zupa | MEDITS red mullet hauls merged with Copernicus bottom temperature, salinity, oxygen and SST, for GSA 6 and GSAs 17-18 |
-| D. Panzeri | Model-ready haul tables, GFW trawling-effort grids, prediction grids and the model predictions (`MB_*.rds`, `eff_grid_*.rds`, `pred_*.rds`) |
-| Pamela Lattanzi | Aims and data decisions (*Recap*), exploratory analysis, maps of predicted density, random effects and habitat suitability (GSA 6) |
-| Stef (`eda_script_stef.R`) | Exploration for GSAs 17-18: bathymetry, biomass maps, correlations among predictors |
-
 ### Aims and data decisions
 
 The group's aims were to describe red mullet biomass in space and time in both areas, express habitat suitability on a 0-1 scale, and later relate it to marine heatwaves and fishing effort. Three decisions shape the analysis:
@@ -1071,7 +1064,7 @@ The GSA 6 index stays within ±`r percent(max(abs(idx_g$rel[idx_g$region == "GSA
 The group's final aim was a 0-1 habitat suitability index (HSI), mapped for both areas. The way it was rescaled is not documented, but rescaling the fixed-effect part of the model (depth and bottom temperature, `est_non_rf`) to 0-1 across all years within each area reproduces the group's maps closely, so that definition is used here. Because it uses the environmental effects only, the HSI describes where conditions suit red mullet, not the persistent hotspots captured by ω.
 
 ```{r fig-grp-hsi}
-#| fig-cap: "Habitat suitability index for red mullet, 2014-2021: fixed-effect predictions (depth and bottom temperature) of the group's model rescaled to 0-1 across all years within each area. Reproduces the group's own HSI maps for both areas (Pamela Lattanzi)."
+#| fig-cap: "Habitat suitability index for red mullet, 2014-2021: fixed-effect predictions (depth and bottom temperature) of the group's model rescaled to 0-1 across all years within each area. Reproduces the group's own HSI maps for both areas."
 #| fig-width: 12
 #| fig-height: 6.2
 
@@ -1120,7 +1113,7 @@ pc_rng <- function(reg) with(filter(hsi_chg, region == reg),
 The group's own HSI maps for each year, shown below, match the reproduction in @fig-grp-hsi. From these, the group mapped the percentage change in each cell between the first and last year, (2021 − 2014) / 2014 × 100. The change maps are not labelled with the variable, but computing this change on the HSI reproduces them: the Adriatic range (`r pc_rng("GSAs 17-18")`) matches the group's legend, and GSA 6 matches except for a few cells where the HSI is close to zero.
 
 ```{r fig-grp-hsi-group}
-#| fig-cap: "The group's habitat suitability maps, 2014-2021 (Pamela Lattanzi)."
+#| fig-cap: "The group's habitat suitability maps, 2014-2021."
 #| fig-subcap:
 #|   - "GSA 6"
 #|   - "GSAs 17-18 (Adriatic)"
@@ -1131,7 +1124,7 @@ knitr::include_graphics(c("data/group/fig_hsi_6.png", "data/group/fig_hsi_1718.p
 ```
 
 ```{r fig-grp-perc-group}
-#| fig-cap: "The group's maps of percentage change in habitat suitability between 2014 and 2021 (Pamela Lattanzi). Red: higher suitability in 2021; blue: lower. Each map has its own colour scale."
+#| fig-cap: "The group's maps of percentage change in habitat suitability between 2014 and 2021. Red: higher suitability in 2021; blue: lower. Each map has its own colour scale."
 #| fig-subcap:
 #|   - "GSA 6"
 #|   - "GSAs 17-18 (Adriatic)"
@@ -1142,9 +1135,9 @@ knitr::include_graphics(c("data/group/fig_perc_6.png", "data/group/fig_1718_perc
 ```
 
 ```{r fig-grp-perc}
-#| fig-cap: "Change in habitat suitability between 2014 and 2021, both areas on the same scale. Top: percentage change, as in the group's maps (colour scale capped at ±25%; a few cells exceed it). Bottom: difference in HSI points, which avoids the large percentages produced where the 2014 HSI is close to zero."
+#| fig-cap: "Percentage change in habitat suitability between 2014 and 2021, both areas on the same colour scale (capped at ±25%; a few cells exceed it)."
 #| fig-width: 11
-#| fig-height: 9
+#| fig-height: 4.8
 
 chg_map <- function(var, reg, view, lim, name) {
   ggplot() + tile(filter(hsi_chg, region == reg), var) + land + view +
@@ -1152,11 +1145,8 @@ chg_map <- function(var, reg, view, lim, name) {
                          midpoint = 0, limits = c(-lim, lim), oob = squish, name = name) +
     labs(title = reg) + theme_map
 }
-d_lim <- max(abs(hsi_chg$diff))
 (chg_map("perc", "GSA 6", gsa6_view, 25, "Change in HSI (%)") |
-   chg_map("perc", "GSAs 17-18", adr_view, 25, "Change in HSI (%)")) /
-  (chg_map("diff", "GSA 6", gsa6_view, d_lim, "Difference in HSI (2021 − 2014)") |
-     chg_map("diff", "GSAs 17-18", adr_view, d_lim, "Difference in HSI (2021 − 2014)")) +
+   chg_map("perc", "GSAs 17-18", adr_view, 25, "Change in HSI (%)")) +
   plot_layout(guides = "collect") & theme(legend.position = "right")
 ```
 
@@ -1174,7 +1164,7 @@ kable(hsi_chg |> group_by(Area = region) |>
 
 In GSA 6, suitability barely changes between 2014 and 2021 (median `r round(median(hsi_chg$perc[hsi_chg$region == "GSA 6"]), 1)`%): a slight gain over most of the shelf and slight losses along its shallow inner edge. In the Adriatic (median `r round(median(hsi_chg$perc[hsi_chg$region == "GSAs 17-18"]), 1)`%), suitability falls slightly over most of the northern basin and rises slightly in the central and southern basin, with the strongest increase in a small patch of the central Adriatic (around 14.8°E, 42.9°N). As the HSI only contains depth and bottom temperature, these maps show where bottom temperature differed between the two years.
 
-> **Discussion points.** (1) A percentage change of a 0-1 index rescaled to its minimum is unstable: where the 2014 HSI is close to zero, a tiny absolute change becomes a large percentage (up to `r round(max(hsi_chg$perc[hsi_chg$region == "GSA 6"]))`% in a GSA 6 cell). The strongest increase in the Adriatic, the central patch, is the same case: it almost disappears in HSI points (bottom row), while the loss over the northern basin, which has high suitability, becomes the main signal. The difference in HSI points is the more robust measure. (2) Comparing two single years mixes trend with year-to-year variability; a per-cell linear trend over 2014-2021 would be a better summary of change. (3) A fixed colour scale shared by both areas, and centred on zero, would make the group's two maps directly comparable.
+> **Discussion points.** (1) A percentage change of a 0-1 index rescaled to its minimum is unstable: where the 2014 HSI is close to zero, a tiny absolute change becomes a large percentage (up to `r round(max(hsi_chg$perc[hsi_chg$region == "GSA 6"]))`% in a GSA 6 cell). The strongest increase in the Adriatic, the central patch, is the same case: in absolute HSI points it is small, while the loss over the northern basin, which has high suitability, is the larger change. The difference in HSI points (summarised in the table) is the more robust measure. (2) Comparing two single years mixes trend with year-to-year variability; a per-cell linear trend over 2014-2021 would be a better summary of change. (3) A fixed colour scale shared by both areas, and centred on zero, would make the group's two maps directly comparable.
 
 ### Overlap between red mullet and trawling
 
