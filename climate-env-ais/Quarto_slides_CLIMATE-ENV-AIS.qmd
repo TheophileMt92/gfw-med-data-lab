@@ -198,22 +198,27 @@ Mean of three 0-1 scores: **heatwave exposure + habitat loss + fishing pressure*
 :::
 ::::
 
-## Full report and code {.center}
+## Slides, report and code {.center}
 
 :::: {.columns}
-::: {.column width="50%"}
-**Live report** (code, tables, diagnostics)
+::: {.column width="34%"}
+**These slides**
+
+[theophilemt92.github.io/gfw-med-data-lab/<br>climate-env-ais/Quarto_slides_CLIMATE-ENV-AIS.html](https://theophilemt92.github.io/gfw-med-data-lab/climate-env-ais/Quarto_slides_CLIMATE-ENV-AIS.html){.small}
+:::
+::: {.column width="34%"}
+**Full report** (code, tables, diagnostics)
 
 [theophilemt92.github.io/gfw-med-data-lab/<br>climate-env-ais/Quarto_report_CLIMATE-ENV-AIS.html](https://theophilemt92.github.io/gfw-med-data-lab/climate-env-ais/Quarto_report_CLIMATE-ENV-AIS.html){.small}
 :::
-::: {.column width="50%"}
+::: {.column width="32%"}
 **Code**
 
-[github.com/TheophileMt92/gfw-med-data-lab](https://github.com/TheophileMt92/gfw-med-data-lab/tree/main/climate-env-ais){.small}
-
-<span class="small muted">All GFW data via `gfwr`; MEDITS from JRC; environment from Copernicus Marine. Figures and numbers from the report rendered `r k$rendered`.</span>
+[github.com/TheophileMt92/<br>gfw-med-data-lab](https://github.com/TheophileMt92/gfw-med-data-lab/tree/main/climate-env-ais){.small}
 :::
 ::::
+
+<span class="small muted">All GFW data via `gfwr`; MEDITS from JRC; environment from Copernicus Marine. Figures and numbers from the report rendered `r k$rendered`.</span>
 
 ## Backup {.section-break background-color="#062d4a"}
 
