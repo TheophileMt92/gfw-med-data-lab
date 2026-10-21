@@ -1,5 +1,5 @@
 ---
-title: "Red mullet in GSA 6 and the Adriatic"
+title: "Red mullet in northern Spain (GSA 6) and the Adriatic (GSAs 17-18)"
 subtitle: "A spatio-temporal species distribution model: biomass, habitat suitability and overlap with trawling"
 author: "climate-env-ais working group"
 date: "2026-10-21"
@@ -102,16 +102,16 @@ Red mullet absent from `r pc(k$grp_absent[["GSA 6"]])` of GSA 6 hauls and `r pc(
 
 ## Goodness of fit
 
-![](figures/fig-grp-fit-1.png){width="92%" fig-align="center"}
+![](figures/fig-grp-fit-1.png){width="74%" fig-align="center"}
 
 :::: {.columns}
 ::: {.column width="50%"}
-- Both models **converge** (positive-definite Hessian, all `sanity()` checks passed)
-- Residuals follow the normal line: the **Tweedie** model fits zeros and large catches
+- Both models **converge** (all `sanity()` checks passed)
+- Residuals on the normal line: **Tweedie** fits zeros and large catches
 :::
 ::: {.column width="50%"}
-- Observed vs fitted: **r = `r num(k$grp_cor[["GSA 6"]], 0.01)`** (GSA 6) and **`r num(k$grp_cor[["GSAs 17-18"]], 0.01)`** (Adriatic), log scale
-- In-sample fit; **cross-validation** (`sdmTMB_cv()`) would test prediction to new hauls
+- Observed vs fitted (log): **r = `r num(k$grp_cor[["GSA 6"]], 0.01)`** (GSA 6), **`r num(k$grp_cor[["GSAs 17-18"]], 0.01)`** (Adriatic)
+- In-sample fit; **cross-validation** would test new hauls
 :::
 ::::
 
