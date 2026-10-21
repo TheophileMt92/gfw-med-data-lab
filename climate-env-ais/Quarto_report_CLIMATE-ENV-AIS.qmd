@@ -415,25 +415,129 @@ kable(top |>
 ```
 
 ```{r fig-smooths}
-#| fig-cap: "Partial effects of the retained model (gam2), with partial residuals."
-#| fig-width: 9
-#| fig-height: 7
+#| fig-cap: "Partial effects of the retained model (gam2) on log abundance: estimated smooth (line), 95% confidence band (shaded), partial residuals (points) and data coverage (rug). Each panel title gives the effective degrees of freedom and p-value."
+#| fig-width: 10
+#| fig-height: 7.5
 
-plot(gam2, residuals = TRUE, pch = 16, cex = 0.2, pages = 1, shade = TRUE,
-     shade.col = pal_ocean[["foam"]], col = pal_ocean[["deep"]])
+# ggplot partial-effect plots for an mgcv GAM (no extra packages needed)
+gam_smooths <- function(model, residuals = TRUE, ncol = 2, n = 200) {
+  dat  <- model$model
+  resp <- all.vars(formula(model))[1]
+  st   <- summary(model)$s.table
+  med  <- lapply(dat[setdiff(names(dat), resp)],
+                 \(x) if (is.numeric(x)) median(x, na.rm = TRUE) else x[1])
+  term_obs <- predict(model, type = "terms")
+  res_w    <- residuals(model, type = "working")
+
+  pieces <- lapply(model$smooth, function(sm) {
+    v   <- sm$term
+    lab <- sm$label
+    head <- sprintf("%s   ·   edf %.2f, p %s", unname(var_labels[v]) %||% v, st[lab, "edf"],
+                    format.pval(st[lab, 4], digits = 2, eps = 1e-4))
+    nd <- as.data.frame(med)[rep(1, n), , drop = FALSE]
+    nd[[v]] <- seq(min(dat[[v]]), max(dat[[v]]), length.out = n)
+    p <- predict(model, nd, type = "terms", se.fit = TRUE)
+    list(
+      curve = tibble(term = head, x = nd[[v]], fit = p$fit[, lab],
+                     lo = p$fit[, lab] - 1.96 * p$se.fit[, lab],
+                     hi = p$fit[, lab] + 1.96 * p$se.fit[, lab]),
+      pts = tibble(term = head, x = dat[[v]], pr = term_obs[, lab] + res_w))
+  })
+  curves <- bind_rows(lapply(pieces, `[[`, "curve"))
+  pts    <- bind_rows(lapply(pieces, `[[`, "pts"))
+  lvls   <- unique(curves$term)
+  curves$term <- factor(curves$term, lvls); pts$term <- factor(pts$term, lvls)
+
+  g <- ggplot(curves, aes(x)) +
+    geom_hline(yintercept = 0, colour = "grey75", linewidth = 0.4)
+  if (residuals)
+    g <- g + geom_point(data = pts, aes(x, pr), colour = pal_ocean[["light"]],
+                        alpha = 0.25, size = 0.8, stroke = 0)
+  g + geom_ribbon(aes(ymin = lo, ymax = hi), fill = pal_ocean[["surface"]], alpha = 0.22) +
+    geom_line(aes(y = fit), colour = pal_ocean[["deep"]], linewidth = 1.1) +
+    geom_rug(data = pts, aes(x), sides = "b", alpha = 0.15, length = unit(0.03, "npc"),
+             colour = pal_ocean[["deep"]]) +
+    facet_wrap(~ term, scales = "free_x", ncol = ncol) +
+    labs(x = NULL, y = "Partial effect (link scale)") +
+    theme_ocean() +
+    theme(strip.text = element_text(face = "bold", hjust = 0, colour = pal_ocean[["deep"]]),
+          panel.grid.major.x = element_blank(),
+          panel.spacing = unit(1.2, "lines"))
+}
+
+# Four-panel residual diagnostics in ggplot.
+# Gaussian models use deviance residuals. Tweedie models (many exact zeros) use
+# simulated randomised quantile residuals (Dunn & Smyth 1996, as in DHARMa),
+# which are standard normal if the model is correct.
+gam_diagnostics <- function(model, nsim = 500, seed = 1) {
+  fam <- model$family$family
+  mu  <- fitted(model); y <- model$y
+  if (grepl("Tweedie", fam)) {
+    set.seed(seed)
+    p   <- model$family$getTheta(TRUE); phi <- model$sig2
+    sim <- vapply(seq_len(nsim), \(i) rTweedie(mu, p = p, phi = phi), numeric(length(mu)))
+    lo  <- rowSums(sim < y); eq <- rowSums(sim == y)
+    q   <- (lo + runif(length(y)) * (eq + 1)) / (nsim + 1)
+    res <- qnorm(q); res_lab <- "Quantile residuals"
+    xs  <- rank(mu) / length(mu); x_lab <- "Fitted (rank-transformed)"
+    log_axes <- TRUE
+  } else {
+    res <- residuals(model, type = "deviance") / sqrt(model$sig2)
+    res_lab <- "Standardised residuals"
+    xs  <- model$linear.predictors; x_lab <- "Linear predictor"
+    log_axes <- FALSE
+  }
+  d  <- tibble(x = xs, fitted = mu, obs = y, res = res)
+  pt <- function(...) geom_point(colour = pal_ocean[["surface"]], alpha = 0.45, size = 1.1, stroke = 0, ...)
+
+  p1 <- ggplot(d, aes(sample = res)) +
+    geom_abline(colour = pal_ocean[["alert"]], linewidth = 0.8) +
+    geom_qq(colour = pal_ocean[["surface"]], alpha = 0.45, size = 1.1, stroke = 0) +
+    labs(title = "Q-Q plot", x = "Theoretical quantiles", y = res_lab)
+  p2 <- ggplot(d, aes(x, res)) + geom_hline(yintercept = 0, linetype = 2, colour = "grey50") +
+    pt() + geom_smooth(method = "loess", formula = y ~ x, se = FALSE,
+                       colour = pal_ocean[["alert"]], linewidth = 0.9) +
+    labs(title = "Residuals vs fitted", x = x_lab, y = res_lab)
+  p3 <- ggplot(d, aes(res)) +
+    geom_histogram(bins = 40, fill = pal_ocean[["mid"]], colour = "white", linewidth = 0.2) +
+    labs(title = "Residual distribution", x = res_lab, y = "Hauls")
+  p4 <- ggplot(d, aes(fitted, obs)) + geom_abline(linetype = 2, colour = "grey50") + pt() +
+    labs(title = "Observed vs fitted", x = "Fitted", y = "Observed")
+  if (log_axes) {
+    plog <- scales::pseudo_log_trans(sigma = 10, base = 10)
+    br <- c(0, 10, 100, 1000, 10000)
+    p4 <- p4 + scale_x_continuous(trans = plog, breaks = br, labels = label_comma()) +
+      scale_y_continuous(trans = plog, breaks = br, labels = label_comma()) +
+      labs(x = "Fitted N/km²", y = "Observed N/km²")
+  }
+  (p1 + p2) / (p3 + p4) & theme_ocean()
+}
+
+gam_smooths(gam2)
 ```
 
 The two GAMs are identical in fit: with `select = TRUE`, the SST smooth in `gam1` is already shrunk to zero, so removing it changes nothing. The group retained `gam2` (bottom temperature, salinity, chlorophyll, fishing hours). Bottom temperature carries most of the signal. Fishing hours is in the lowest-AICc model, but its smooth is only marginally significant (p ≈ 0.06) and models without it are within 2 AICc units. The model explains about a fifth of the deviance in log abundance, which is typical for haul-level survey data but a reminder that much of the variation is unexplained.
 
 ```{r step2-check}
+#| cache: false
 #| code-summary: "Residual checks"
-#| fig-width: 9
-#| fig-height: 7
-#| results: hide
+#| fig-cap: "Residual diagnostics for gam2. Points close to the red line in the Q-Q plot, a flat smoother in the residuals panel and a symmetric histogram indicate that the Gaussian model on log abundance is adequate."
+#| fig-width: 10
+#| fig-height: 7.5
 
-par(mfrow = c(2, 2))
-gam.check(gam2, pch = 16, cex = 0.4)
+gam_diagnostics(gam2)
 ```
+
+```{r tbl-kcheck}
+#| code-summary: "Basis dimension check (k-index)"
+#| classes: tbl-compact
+
+kc <- as.data.frame(k.check(gam2))
+kable(tibble(term = rownames(kc), `k'` = kc[[1]], edf = round(kc$edf, 2),
+             `k-index` = round(kc$`k-index`, 2), `p-value` = signif(kc$`p-value`, 2)))
+```
+
+A k-index well below 1 with a small p-value would suggest the basis is too small (`k = 4`) for that term. The smooths here are deliberately constrained to stay ecologically interpretable, so a low k-index is a prompt to look at the residual pattern rather than to raise `k` automatically.
 
 > **Discussion point: zeros in effort.** Hauls without matched AIS effort have `fishing_hours = NA` and are removed by `na.omit()`, so the model is fitted only on fished cells. On the prediction grid, missing effort is set to 0, outside the fitted range. Treating unmatched hauls as zero effort in both places, or adding a fished / not fished indicator, would make the two consistent.
 
@@ -632,28 +736,25 @@ kable(tibble(term = rownames(s_mb), edf = round(s_mb$edf, 2),
 ```
 
 ```{r fig-mb-smooths}
-#| fig-cap: "Partial effects of the red mullet depth model, on the log-link scale."
+#| fig-cap: "Partial effects of the red mullet depth model on the log-link scale, with 95% confidence bands and data coverage (rug). Panels have free y axes because the depth effect is an order of magnitude larger than the others."
 #| fig-width: 10
-#| fig-height: 7
+#| fig-height: 9
 
-plot(mb_depth, pages = 1, shade = TRUE, shade.col = pal_ocean[["foam"]],
-     col = pal_ocean[["deep"]], rug = TRUE, scale = 0)
+gam_smooths(mb_depth, residuals = FALSE) +
+  facet_wrap(~ term, scales = "free", ncol = 2)
 ```
 
-```{r fig-mb-obs-pred}
-#| fig-cap: "Observed vs fitted red mullet density per haul (log scale). Hauls with zero catch are shown at the bottom."
-#| fig-width: 6
-#| fig-height: 5
+```{r fig-mb-check}
+#| cache: false
+#| code-summary: "Residual checks for the red mullet model"
+#| fig-cap: "Residual diagnostics for the red mullet Tweedie GAM, using simulated quantile residuals (500 simulations), which should follow the red 1:1 line in the Q-Q plot and show no trend against fitted values if the model is adequate. Observed vs fitted uses pseudo-log axes so that hauls with zero catch are shown along the bottom."
+#| fig-width: 10
+#| fig-height: 7.5
 
-mull6$fitted <- fitted(mb_depth)
-ggplot(mull6, aes(fitted + 1, N_km2 + 1)) +
-  geom_abline(linetype = 2, colour = "grey50") +
-  geom_point(aes(colour = present), alpha = 0.5, size = 1) +
-  scale_x_log10(labels = label_comma()) + scale_y_log10(labels = label_comma()) +
-  scale_colour_manual(values = c(`TRUE` = pal_ocean[["surface"]], `FALSE` = pal_ocean[["sand"]]),
-                      labels = c(`TRUE` = "Caught", `FALSE` = "Not caught"), name = NULL) +
-  labs(x = "Fitted N/km² + 1", y = "Observed N/km² + 1") + theme_ocean()
+gam_diagnostics(mb_depth)
 ```
+
+The quantile residuals follow the 1:1 line closely and show no trend against fitted values, so the Tweedie distribution handles the mix of zeros and large catches well overall. The observed-vs-fitted panel shows the main weakness: many hauls with no red mullet are predicted at several hundred individuals per km². The model captures *where* red mullet habitat is, but not the haul-to-haul patchiness within it.
 
 Depth transforms the model: deviance explained rises from `r percent(summary(mb_env)$dev.expl, 1)` to `r percent(summary(mb_depth)$dev.expl, 1)`, and AIC drops by `r fmt(AIC(mb_env) - AIC(mb_depth))` units. Predicted density is high and fairly flat down to about 200 m, then falls steeply on the slope, consistent with red mullet's known shelf distribution. Among the environmental terms, density increases with bottom temperature and decreases with chlorophyll, while surface salinity adds little (p ≈ 0.07). Collinearity is low for all five predictors (VIF < 2).
 
