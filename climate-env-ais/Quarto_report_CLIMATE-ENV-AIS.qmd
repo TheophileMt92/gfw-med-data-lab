@@ -1176,6 +1176,25 @@ In GSA 6, suitability barely changes between 2014 and 2021 (median `r round(medi
 
 > **Discussion points.** (1) A percentage change of a 0-1 index rescaled to its minimum is unstable: where the 2014 HSI is close to zero, a tiny absolute change becomes a large percentage (up to `r round(max(hsi_chg$perc[hsi_chg$region == "GSA 6"]))`% in a GSA 6 cell). The strongest increase in the Adriatic, the central patch, is the same case: it almost disappears in HSI points (bottom row), while the loss over the northern basin, which has high suitability, becomes the main signal. The difference in HSI points is the more robust measure. (2) Comparing two single years mixes trend with year-to-year variability; a per-cell linear trend over 2014-2021 would be a better summary of change. (3) A fixed colour scale shared by both areas, and centred on zero, would make the group's two maps directly comparable.
 
+### Overlap between red mullet and trawling
+
+The last step so far links the model to the fishery, the group's next aim after the index and the HSI. The group mapped, for each year, a local correlation between red mullet and trawling effort: red where the two rise and fall together across neighbouring cells (trawling concentrates where red mullet is abundant), blue where they diverge.
+
+```{r fig-grp-corr}
+#| fig-cap: "The group's map of local correlation between red mullet and trawling effort, 2014-2021. Left: GSA 6. Right: GSAs 17-18 (Adriatic). Red: positive correlation; blue: negative. Original figure by the group."
+#| echo: false
+
+knitr::include_graphics("data/group/correlation_map_2700.jpeg")
+```
+
+The script for this map has not been shared. The group's files include yearly trawling effort on the same grid as the predictions (`eff_grid_6.rds`, `eff_grid_1718.rds`: hours in the year, `trawl_y`, in the previous year, `trawl_y1`, and relative effort, `trawl_rel`). A moving-window Pearson correlation between predicted biomass (`dens`) and `trawl_y`, computed here as a check, gives the same broad pattern in the Adriatic: positive in the north-western and central basin and negative along the coastal edge. It does not match exactly, so the variables, window size and method remain to be confirmed.
+
+In GSA 6, correlations are mostly negative, with positive patches on parts of the outer shelf. In the Adriatic, a band of positive correlation runs through the north-western and central basin in every year and is strongest in 2020-2021, while the coastal edge is negative throughout.
+
+> **Discussion points.** (1) Within a small window, correlations close to ±1 are common by chance, so the map needs a significance test or a larger window before it is interpreted. (2) The predictions do not include effort, which is right for this question, but they include the spatial random fields, so part of the overlap may come from where hauls were taken. (3) Simpler, whole-area summaries of overlap would complement the map: for example, the share of trawling hours in the cells with the highest predicted biomass, or a per-cell correlation across the eight years. (4) The axis labels read "UTM 33N" but the coordinates are in degrees.
+
+> **Still to share:** the script behind the correlation map (variables, window, method).
+
 ## 3. Marine heatwaves and fleet behaviour
 
 ### Detecting marine heatwaves
