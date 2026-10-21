@@ -197,13 +197,17 @@ p_map + p_year + plot_layout(widths = c(1.5, 1))
 
 ```{r fig-sst}
 #| fig-cap: "Sea surface temperature at the time of each haul."
-#| fig-width: 11
-#| fig-height: 6
+#| fig-width: 10
+#| fig-height: 11
 
 ggplot(hauls) + land +
-  geom_point(aes(MEAN_LONGITUDE_DEC, MEAN_LATITUDE_DEC, colour = sst), size = 0.4) +
-  scale_colour_viridis_c(name = "SST (°C)") +
-  med_view + facet_wrap(~YEAR, ncol = 5) + theme_map
+  geom_point(aes(MEAN_LONGITUDE_DEC, MEAN_LATITUDE_DEC, colour = sst), size = 0.7) +
+  scale_colour_viridis_c(name = "SST at haul (°C)") +
+  med_view + facet_wrap(~YEAR, ncol = 2) + theme_map +
+  guides(colour = guide_colourbar(barwidth = unit(16, "lines"), barheight = unit(0.6, "lines"),
+                                  title.position = "top", title.hjust = 0.5)) +
+  theme(strip.text = element_text(face = "bold", size = 11, colour = pal_ocean[["deep"]]),
+        panel.spacing = unit(0.6, "lines"))
 ```
 
 ### What AIS sees over time
