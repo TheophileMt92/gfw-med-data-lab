@@ -189,9 +189,10 @@ saveRDS(hauls_map, "outputs/hauls_map.rds")   # read by the slides
 haul_map(hauls_map, height = 520)
 ```
 
-MEDITS hauls 2012-2021, coloured by GSA, with GSA 6 in gold. Hover over a haul for its date, depth, bottom temperature, SST and the AIS trawling effort in its grid cell; drag to pan and scroll to zoom.
+MEDITS hauls 2012-2021, coloured by GSA on a dark-blue background, with GSA 6 in gold. Hover over a haul for its date, depth, bottom temperature, SST and the AIS trawling effort in its grid cell; drag to pan and scroll to zoom.
 
 ```{r fig-hauls}
+#| cache: false
 #| fig-cap: "Number of MEDITS hauls per year in each GSA (colours as in the map; GSA 6 in bold gold). Breaks in a line, and isolated points, are years without a survey in that GSA."
 #| fig-width: 10
 #| fig-height: 6.5
@@ -202,7 +203,7 @@ hpy <- hauls |>
   mutate(GSA = factor(GSA))
 ends <- hpy |> filter(!is.na(n)) |> group_by(GSA) |> slice_max(YEAR, n = 1)
 cols <- gsa_colours(hauls$GSA)
-cols["6"] <- "#d49a2a"                            # GSA 6 in gold, as on the map
+cols["6"] <- "#d9a520"                            # GSA 6 in gold, as on the map
 
 ggplot(hpy, aes(YEAR, n, colour = GSA, group = GSA)) +
   geom_line(aes(linewidth = GSA == "6"), na.rm = TRUE) +

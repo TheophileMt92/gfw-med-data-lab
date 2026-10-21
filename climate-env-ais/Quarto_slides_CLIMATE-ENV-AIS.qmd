@@ -26,11 +26,12 @@ format:
 #| include: false
 # All figures and numbers come from the report: its last chunk writes
 # outputs/report_numbers.rds and copies its figures to figures/.
-# If the report source is newer than those (or they are missing), the report is
+# If the report source or the shared R/ code is newer than those (or they are missing), the report is
 # re-rendered first, so rendering these slides always reflects the latest report.
 report <- "Quarto_report_CLIMATE-ENV-AIS.qmd"
 nums   <- "outputs/report_numbers.rds"
-if (!file.exists(nums) || file.mtime(report) > file.mtime(nums)) {
+sources <- c(report, list.files("R", full.names = TRUE))   # report + shared R code
+if (!file.exists(nums) || max(file.mtime(sources)) > file.mtime(nums)) {
   message("Report changed: re-rendering ", report, " first")
   status <- system2("quarto", c("render", shQuote(report)))
   if (status != 0) stop("Report render failed; slides not updated")
