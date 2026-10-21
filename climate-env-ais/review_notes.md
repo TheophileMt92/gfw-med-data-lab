@@ -53,7 +53,7 @@ At MEDITS hauls, the share with matched AIS trawler effort rises from **49% in 2
 ### 2. Total fish SDM: back-transformation (fixed in the report) and July extrapolation
 
 - **Fixed:** the group's change maps and `perc.change` were computed on log(N/km²). The report now back-transforms predictions (N/km² = exp(fit)) before mapping and computing change, and the vulnerability index uses the corrected change. The corrected table is `outputs/fish.change6_abundance.csv`; the group's `fish.change6.csv` is left untouched.
-- **Still open:** the model is fitted on May-June hauls (all deeper than 35 m, bottom temperature ≤ 17.2 °C) but predicts July over the whole grid. Shallow coastal cells reach 26.9 °C in July, and the rising bottom-temperature smooth then gives implausible abundances (up to ~10^11 per km²). About 11% of grid-year predictions are outside the sampled bottom-temperature range; the report greys them out and excludes them from the change summary. Predicting for June and within the sampled depth range would avoid this.
+- **Still open:** the model is fitted on May-June hauls (all deeper than 35 m, bottom temperature ≤ 17.2 °C) but predicts July over the whole grid. Shallow coastal cells reach 26.9 °C in July, and the rising bottom-temperature smooth then gives implausible abundances (up to ~9 × 10^11 per km²). About 11% of grid-year predictions are outside the sampled bottom-temperature range; the report greys them out and excludes them from the change summary. Predicting for June and within the sampled depth range would avoid this.
 
 ### 3. Model details for the total fish SDM
 

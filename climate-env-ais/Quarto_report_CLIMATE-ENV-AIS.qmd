@@ -175,24 +175,33 @@ hauls <- distinct(med, id, .keep_all = TRUE)
 
 The merged table holds `r fmt(nrow(med))` species-by-haul records from `r fmt(nrow(hauls))` hauls across `r n_distinct(hauls$GSA)` GSAs.
 
+```{r haul-map}
+#| code-summary: "Interactive map of MEDITS hauls (R/haul_map.R, shared with the slides)"
+#| cache: false
+
+source("R/haul_map.R")
+hauls_map <- hauls |>
+  transmute(id, GSA, country = COUNTRY, year = YEAR, month = MONTH,
+            lon = MEAN_LONGITUDE_DEC, lat = MEAN_LATITUDE_DEC,
+            depth = MEAN_DEPTH, sst, botTemp, fishing_hours)
+saveRDS(hauls_map, "outputs/hauls_map.rds")   # read by the slides
+
+haul_map(hauls_map, height = 520)
+```
+
+MEDITS hauls 2012-2021, coloured by GSA, with GSA 6 in gold. Hover over a haul for its date, depth, bottom temperature, SST and the AIS trawling effort in its grid cell; drag to pan and scroll to zoom.
+
 ```{r fig-hauls}
-#| fig-cap: "MEDITS hauls 2012-2021, coloured by GSA (left), and number of hauls per year (right)."
-#| fig-width: 11
-#| fig-height: 4.5
+#| fig-cap: "Number of MEDITS hauls per year and GSA (same colours as the map)."
+#| fig-width: 10
+#| fig-height: 4
 
-p_map <- ggplot(hauls) + land +
-  geom_point(aes(MEAN_LONGITUDE_DEC, MEAN_LATITUDE_DEC, colour = factor(GSA)),
-             size = 0.5, alpha = 0.7) +
-  med_view + theme_map + theme(legend.position = "none") +
-  labs(title = "Survey hauls")
-
-p_year <- hauls |> count(GSA, YEAR) |>
+hauls |> count(GSA, YEAR) |>
   ggplot(aes(YEAR, n, fill = factor(GSA))) + geom_col() +
+  scale_fill_manual(values = gsa_colours(hauls$GSA)) +
   scale_x_continuous(breaks = 2012:2021) +
   theme_ocean() + theme(legend.position = "right") +
-  labs(title = "Hauls per year", x = NULL, y = "Hauls", fill = "GSA")
-
-p_map + p_year + plot_layout(widths = c(1.5, 1))
+  labs(x = NULL, y = "Hauls", fill = "GSA")
 ```
 
 ```{r fig-sst}
@@ -643,7 +652,7 @@ dens <- scale_colour_gradientn(colours = c("lightyellow", "gold", "orange", "red
 
 Across the `r fmt(sum(!fish.change6$extrapolated))` grid cells within the sampled bottom-temperature range in both years (of `r fmt(nrow(fish.change6))`), the median change in predicted total fish abundance from 2012 to 2021 is `r percent(median(ok$perc.change) / 100, 1)`, and `r percent(mean(ok$perc.change < 0), 1)` of cells decline. Changes this large over a decade are unlikely to be purely environmental: the 2012 predictions use near-zero AIS effort (Step 1), so part of the contrast comes from the fishing-hours smooth.
 
-> **Discussion point: extrapolation in July.** The model is fitted on MEDITS hauls from May and June, all deeper than `r floor(min(fish6$MEAN_DEPTH))` m, but predicts for July over the whole grid. In shallow coastal cells, July bottom temperature reaches `r round(max(fish.pred6$botTemp), 1)` °C, against a maximum of `r round(bt_range[2], 1)` °C in the fitting data, and the rising bottom-temperature smooth then produces implausibly high abundances (up to `r format(signif(max(fish.pred6$N), 1), big.mark = ",", scientific = TRUE)` per km²). `r percent(mean(fish.pred6$extrapolated), 1)` of grid-year predictions fall outside the sampled bottom-temperature range; they are shown in grey and excluded from the change summary above. Predicting for June, as in Section 2b, and restricting the grid to the sampled depth range would avoid most of this.
+> **Discussion point: extrapolation in July.** The model is fitted on MEDITS hauls from May and June, all deeper than `r floor(min(fish6$MEAN_DEPTH))` m, but predicts for July over the whole grid. In shallow coastal cells, July bottom temperature reaches `r round(max(fish.pred6$botTemp), 1)` °C, against a maximum of `r round(bt_range[2], 1)` °C in the fitting data, and the rising bottom-temperature smooth then produces implausibly high abundances (up to `r e <- floor(log10(max(fish.pred6$N))); sprintf("%.0f × 10^%d^", max(fish.pred6$N) / 10^e, e)` individuals per km²). `r percent(mean(fish.pred6$extrapolated), 1)` of grid-year predictions fall outside the sampled bottom-temperature range; they are shown in grey and excluded from the change summary above. Predicting for June, as in Section 2b, and restricting the grid to the sampled depth range would avoid most of this.
 
 ## 2b. Species distribution model: red mullet
 
@@ -1192,10 +1201,4 @@ report_numbers <- list(
 )
 saveRDS(report_numbers, "outputs/report_numbers.rds")
 
-# Haul-level table for the interactive map on the slides
-saveRDS(hauls |>
-          transmute(id, GSA, country = COUNTRY, year = YEAR, month = MONTH,
-                    lon = MEAN_LONGITUDE_DEC, lat = MEAN_LATITUDE_DEC,
-                    depth = MEAN_DEPTH, sst, botTemp, fishing_hours),
-        "outputs/hauls_map.rds")
 ```
