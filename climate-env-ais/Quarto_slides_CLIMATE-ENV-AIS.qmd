@@ -166,10 +166,6 @@ GSA 6 and the Adriatic (GSAs 17-18), 2014-2021 · report Section 2c
 | Per +100 m depth | −`r pc(k$grp_depth_drop[["GSA 6"]])` | −`r pc(k$grp_depth_drop[["GSAs 17-18"]])` |
 | Per +1 °C bottom temp. | `r pcs(100 * k$grp_temp$per_c[1])` | `r pcs(100 * k$grp_temp$per_c[2])` |
 | Largest \|ε\| | `r num(k$grp_eps_max[["GSA 6"]], 0.1)` | `r num(k$grp_eps_max[["GSAs 17-18"]], 0.1)` |
-
-::: {.caveat}
-**Discussion point:** in GSA 6, `r pc(k$grp_shallow_cells)` of the grid is shallower than the shallowest haul but holds **`r pc(k$grp_shallow_bio)`** of predicted biomass (extrapolation).
-:::
 :::
 ::::
 
@@ -307,7 +303,7 @@ Mean of three 0-1 scores: **heatwave exposure + habitat loss + fishing pressure*
 - Identify which environmental term drives the 2015-2021 decline
 - Check it against the observed MEDITS trend
 - Feed red mullet habitat change into the vulnerability index in place of total fish
-- Spatio-temporal model: index standard errors, cross-validation, predict within the sampled depth range
+- Spatio-temporal model: index standard errors, cross-validation
 :::
 ::::
 

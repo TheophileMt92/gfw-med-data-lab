@@ -180,23 +180,6 @@ Sum of predicted biomass × cell area, per year
 :::
 ::::
 
-## Extrapolation in GSA 6
-
-:::: {.columns}
-::: {.column width="50%"}
-[`r pc(k$grp_shallow_cells)`]{.big-number}
-[of the GSA 6 grid is shallower than the shallowest haul (`r k$grp_min_depth` m)]{.big-label}
-:::
-::: {.column width="50%"}
-[`r pc(k$grp_shallow_bio)`]{.big-number}
-[of predicted GSA 6 biomass sits in those cells]{.big-label}
-:::
-::::
-
-::: {.caveat}
-**Discussion point:** linear effects (biomass ↑ with temperature, ↓ with depth) push the shallowest, warmest coastal cells beyond the sampled range. **Restrict the prediction grid to the sampled depth range.**
-:::
-
 ## Habitat suitability index (HSI)
 
 ![](figures/fig-grp-hsi-1.png){width="100%" fig-align="center"}
@@ -243,7 +226,6 @@ Local correlation between red mullet and **GFW trawling effort**, by year
 - Index **standard errors** with `get_index()`, especially for the thinly sampled years
 - **Cross-validation** to test predictive skill
 - Add an **intercept or year effects** to the model formula
-- Prediction grid within the **sampled depth range**
 - Habitat change as an **HSI difference or 2014-2021 trend**, rather than % change between two years
 - Overlap with trawling: **significance** and a single summary per area and year
 
