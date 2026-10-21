@@ -1191,4 +1191,11 @@ report_numbers <- list(
   rendered         = format(Sys.time(), "%d %b %Y, %H:%M")
 )
 saveRDS(report_numbers, "outputs/report_numbers.rds")
+
+# Haul-level table for the interactive map on the slides
+saveRDS(hauls |>
+          transmute(id, GSA, country = COUNTRY, year = YEAR, month = MONTH,
+                    lon = MEAN_LONGITUDE_DEC, lat = MEAN_LATITUDE_DEC,
+                    depth = MEAN_DEPTH, sst, botTemp, fishing_hours),
+        "outputs/hauls_map.rds")
 ```

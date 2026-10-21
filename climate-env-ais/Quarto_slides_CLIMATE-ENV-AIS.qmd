@@ -36,6 +36,7 @@ if (!file.exists(nums) || file.mtime(report) > file.mtime(nums)) {
   if (status != 0) stop("Report render failed; slides not updated")
 }
 k <- readRDS(nums)
+hauls_map <- readRDS("outputs/hauls_map.rds")
 pc  <- function(x, acc = 1) scales::percent(x, accuracy = acc)
 pcs <- function(x, acc = 1) sub("^-", "−", scales::percent(x / 100, accuracy = acc, style_positive = "plus"))
 num <- function(x, acc = 1) scales::comma(x, accuracy = acc)
@@ -48,7 +49,47 @@ mhw_zero <- names(k$mhw_cum)[k$mhw_cum == 0]
 
 :::: {.columns}
 ::: {.column width="62%"}
-![](figures/fig-hauls-1.png){width="100%"}
+```{r haul-map}
+#| echo: false
+# Interactive haul map: hover over a haul for its details (basemap tiles need internet)
+library(leaflet)
+
+hm <- hauls_map |>
+  dplyr::mutate(
+    gsa_f = factor(GSA, levels = sort(unique(GSA))),
+    is6   = GSA == 6,
+    label = sprintf(
+      paste0("<b>GSA %s</b> · %s<br>%s/%02d · haul %s<br>",
+             "Depth %s m · bottom %s °C · SST %s °C<br>",
+             "AIS trawling: %s"),
+      GSA, country, year, month, sub(".*_", "", id),
+      round(depth), round(botTemp, 1), round(sst, 1),
+      ifelse(is.na(fishing_hours), "no match",
+             paste0(format(round(fishing_hours), big.mark = ","), " h/yr in cell"))))
+
+gsa_pal <- colorFactor(hcl.colors(nlevels(hm$gsa_f), "Dark 3"), domain = hm$gsa_f)
+
+leaflet(hm, height = 640, width = "100%",
+        # SVG markers (not canvas): hover hit-testing stays correct when reveal.js scales the slide
+        options = leafletOptions(preferCanvas = FALSE, zoomSnap = 0.25)) |>
+  addProviderTiles(providers$Esri.WorldGrayCanvas,
+                   options = providerTileOptions(maxZoom = 12)) |>
+  fitBounds(-6, 34.5, 36, 46) |>
+  addCircleMarkers(data = dplyr::filter(hm, !is6), lng = ~lon, lat = ~lat,
+                   radius = 2.5, stroke = FALSE, fillOpacity = 0.75,
+                   fillColor = ~gsa_pal(gsa_f),
+                   label = ~lapply(label, htmltools::HTML),
+                   labelOptions = labelOptions(textsize = "13px", direction = "top"),
+                   group = "Other GSAs") |>
+  addCircleMarkers(data = dplyr::filter(hm, is6), lng = ~lon, lat = ~lat,
+                   radius = 3.5, color = "#062d4a", weight = 1, fillOpacity = 0.9,
+                   fillColor = "#e4b363",
+                   label = ~lapply(label, htmltools::HTML),
+                   labelOptions = labelOptions(textsize = "13px", direction = "top"),
+                   group = "GSA 6") |>
+  addLegend("bottomleft", colors = "#e4b363", labels = "GSA 6 (study area)",
+            opacity = 1)
+```
 :::
 ::: {.column width="38%"}
 - **MEDITS** bottom-trawl survey, 2012-2021: abundance per species and haul
@@ -56,7 +97,7 @@ mhw_zero <- names(k$mhw_cum)[k$mhw_cum == 0]
 - **GFW AIS** apparent fishing hours, trawlers, yearly 0.1° cells, pulled with `gfwr`
 - Focus on **GSA 6** (Spanish Mediterranean, Murcia to the French border)
 
-<span class="small muted">`r num(k$n_hauls_all)` hauls in `r k$n_gsa` GSAs; `r num(k$n_hauls_gsa6)` in GSA 6</span>
+<span class="small muted">`r num(k$n_hauls_all)` hauls in `r k$n_gsa` GSAs; `r num(k$n_hauls_gsa6)` in GSA 6 (gold). Hover over a haul for its details; scroll to zoom.</span>
 :::
 ::::
 
