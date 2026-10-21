@@ -1,0 +1,248 @@
+---
+title: "Red mullet in GSA 6 and the Adriatic"
+subtitle: "A spatio-temporal species distribution model: biomass, habitat suitability and overlap with trawling (report Section 2c)"
+author: "climate-env-ais working group"
+date: "2026-10-21"
+date-format: "D MMMM YYYY"
+title-slide-attributes:
+  data-background-color: "#062d4a"
+format:
+  revealjs:
+    output-file: Quarto_slides_2C_red_mullet.html
+    theme: [default, template/slides-ocean.scss]
+    width: 1600
+    height: 900
+    margin: 0.06
+    embed-resources: true
+    slide-number: c/t
+    hash: true
+    transition: fade
+    transition-speed: fast
+    footer: "Global Fishing Watch Mediterranean Data Lab · climate-env-ais · Section 2c"
+    lightbox: true
+---
+
+```{r setup}
+#| include: false
+# Same link as the main deck: every figure and number comes from the report
+# (Section 2c). If the report or R/ code is newer than outputs/report_numbers.rds,
+# the report is re-rendered first.
+report  <- "Quarto_report_CLIMATE-ENV-AIS.qmd"
+nums    <- "outputs/report_numbers.rds"
+sources <- c(report, list.files("R", full.names = TRUE))
+if (!file.exists(nums) || max(file.mtime(sources)) > file.mtime(nums)) {
+  message("Report changed: re-rendering ", report, " first")
+  status <- system2("quarto", c("render", shQuote(report)))
+  if (status != 0) stop("Report render failed; slides not updated")
+}
+k <- readRDS(nums)
+pc  <- function(x, acc = 1) scales::percent(x, accuracy = acc)
+pcs <- function(x, acc = 1) sub("^-", "−", scales::percent(x, accuracy = acc, style_positive = "plus"))
+num <- function(x, acc = 1) scales::comma(x, accuracy = acc)
+```
+
+## Aims and data
+
+:::: {.columns}
+::: {.column width="50%"}
+**Aims**
+
+- Describe red mullet (*Mullus barbatus*) **biomass in space and time** in two areas
+- Express **habitat suitability on a 0-1 scale**
+- Then relate it to **fishing effort** and marine heatwaves
+
+**Data decisions**
+
+- Response: **biomass** (kg/km²) per MEDITS haul
+- **2014-2021**: no Croatian MEDITS survey in 2012-2013 (also avoids the early AIS ramp-up)
+- Bottom temperature, salinity, oxygen and SST matched to each haul (Copernicus)
+:::
+::: {.column width="50%"}
+:::: {.columns}
+::: {.column width="50%"}
+[`r num(k$grp_hauls[["GSA 6"]])`]{.big-number}
+[valid hauls, GSA 6 (northern Spain)]{.big-label}
+:::
+::: {.column width="50%"}
+[`r num(k$grp_hauls[["GSAs 17-18"]])`]{.big-number}
+[valid hauls, GSAs 17-18 (Adriatic)]{.big-label}
+:::
+::::
+
+Red mullet absent from `r pc(k$grp_absent[["GSA 6"]])` of GSA 6 hauls and `r pc(k$grp_absent[["GSAs 17-18"]])` of Adriatic hauls.
+
+::: {.caveat}
+Two thin years: GSA 6 in **2020** (`r k$grp_thin_6` hauls, COVID-19) and the Adriatic in **2017** (`r k$grp_thin_1718` hauls).
+:::
+:::
+::::
+
+## The model: sdmTMB
+
+:::: {.columns}
+::: {.column width="55%"}
+The fitting script is not shared yet, so the structure is **reconstructed from the saved predictions**:
+
+<p style="text-align:center; font-size:1.15em; margin:1.2em 0;">log(biomass) = **depth + bottom temperature** + **ω** (spatial) + **ε** (spatio-temporal, by year)</p>
+
+- Fixed effects exactly linear (R² = 1 when refitted), **no year effect**
+- Year-to-year change comes only from **bottom temperature** and **ε**
+- Family and mesh not recoverable from the predictions
+:::
+::: {.column width="45%"}
+| | GSA 6 | GSAs 17-18 |
+|---|---|---|
+| Per +100 m depth | −`r pc(k$grp_depth_drop[["GSA 6"]])` | −`r pc(k$grp_depth_drop[["GSAs 17-18"]])` |
+| Per +1 °C bottom temp. | `r pcs(k$grp_temp_rise[["GSA 6"]])` | `r pcs(k$grp_temp_rise[["GSAs 17-18"]])` |
+| Largest \|ε\| | `r num(k$grp_eps_max[["GSA 6"]], 0.1)` | `r num(k$grp_eps_max[["GSAs 17-18"]], 0.1)` |
+
+[Change in predicted biomass per unit of each covariate, on the response scale.]{.small .muted}
+:::
+::::
+
+## Predicted biomass: GSA 6
+
+![](figures/fig-grp-dens-6-1.png){width="92%" fig-align="center"}
+
+[Highest on the inner shelf along the whole coast, dropping quickly offshore.]{.small .muted}
+
+## Predicted biomass: Adriatic
+
+![](figures/fig-grp-dens-1718-1.png){width="88%" fig-align="center"}
+
+[Highest in the shallow northern basin and along the Croatian coast; a gentler depth gradient over a much wider shelf.]{.small .muted}
+
+## Spatial and spatio-temporal random effects
+
+![](figures/fig-grp-eps-1.png){width="100%" fig-align="center"}
+
+:::: {.columns}
+::: {.column width="50%"}
+**ω** (first column): persistent hotspots not explained by depth and temperature
+:::
+::: {.column width="50%"}
+**ε** by year: small in GSA 6, large in the Adriatic (up to ±`r num(k$grp_eps_max[["GSAs 17-18"]], 0.1)`, a factor of ~`r round(exp(k$grp_eps_max[["GSAs 17-18"]]))` in biomass)
+:::
+::::
+
+## Biomass index
+
+:::: {.columns}
+::: {.column width="58%"}
+![](figures/fig-grp-index-1.png){width="100%"}
+:::
+::: {.column width="42%"}
+Sum of predicted biomass × cell area, per year
+
+[`r pcs(k$grp_idx_6_change)`]{.big-number}
+[GSA 6, 2015 → 2021 (Tweedie GAM of Section 2b: `r pcs(k$grp_gam_change / 100)` in density)]{.big-label}
+
+[`r pc(k$grp_idx_1718_rng[1])`-`r pc(k$grp_idx_1718_rng[2])`]{.big-number}
+[Adriatic, range relative to its mean]{.big-label}
+
+::: {.caveat}
+Each area peaks in its **least-sampled year**. Index standard errors (`get_index()`) need the fitted model.
+:::
+:::
+::::
+
+## Extrapolation in GSA 6
+
+:::: {.columns}
+::: {.column width="50%"}
+[`r pc(k$grp_shallow_cells)`]{.big-number}
+[of the GSA 6 grid is shallower than the shallowest haul (`r k$grp_min_depth` m)]{.big-label}
+:::
+::: {.column width="50%"}
+[`r pc(k$grp_shallow_bio)`]{.big-number}
+[of predicted GSA 6 biomass sits in those cells]{.big-label}
+:::
+::::
+
+::: {.caveat}
+Linear effects (biomass ↑ with temperature, ↓ with depth) push the shallowest, warmest coastal cells beyond the sampled range. **Restrict the prediction grid to the sampled depth range.**
+:::
+
+## Habitat suitability index (HSI)
+
+![](figures/fig-grp-hsi-1.png){width="100%" fig-align="center"}
+
+[Fixed effects (depth + bottom temperature) rescaled to 0-1 across all years in each area; reproduces the group's maps. Highest on the shallow inner shelf; in the Adriatic, the northern basin scores high almost everywhere.]{.small .muted}
+
+## Change in habitat suitability, 2014 to 2021
+
+![](figures/fig-grp-perc-1.png){width="80%" fig-align="center"}
+
+:::: {.columns}
+::: {.column width="50%"}
+- GSA 6: median **`r pcs(k$grp_perc_med[["GSA 6"]] / 100, 0.1)`**, almost no change
+- Adriatic: median **`r pcs(k$grp_perc_med[["GSAs 17-18"]] / 100, 0.1)`**; `r pc(k$grp_hsi_lower[["GSAs 17-18"]])` of cells lose suitability, mainly the northern basin
+:::
+::: {.column width="50%"}
+::: {.caveat}
+% change of a 0-1 index explodes where HSI ≈ 0 (up to `r pcs(k$grp_perc_max_6 / 100)` in one GSA 6 cell): use the **difference in HSI** and a **2014-2021 trend** rather than two years.
+:::
+:::
+::::
+
+## Overlap between red mullet and trawling
+
+:::: {.columns}
+::: {.column width="55%"}
+![](data/group/correlation_map_2700.jpeg){width="100%"}
+:::
+::: {.column width="45%"}
+Local correlation between red mullet and **GFW trawling effort**, by year
+
+- **Red**: trawling concentrated where red mullet is abundant
+- GSA 6: mostly negative, positive patches on the outer shelf
+- Adriatic: a positive band through the north-western and central basin every year; coastal edge negative
+
+::: {.caveat}
+Method not yet shared (variables, window). In small windows, correlations near ±1 are common by chance: add a **significance test** or a **whole-area overlap measure**.
+:::
+:::
+::::
+
+## Next steps
+
+:::: {.columns}
+::: {.column width="50%"}
+**To share**
+
+1. sdmTMB fitting script (mesh, family, formula)
+2. Data preparation (`MB_*`, effort and prediction grids)
+3. HSI rescaling (to confirm)
+4. Correlation-map script
+:::
+::: {.column width="50%"}
+**To improve**
+
+- Index **standard errors**, especially for thin years
+- Prediction grid within the **sampled depth range**
+- HSI change as a **difference or trend**, not % between two years
+- Overlap with trawling: **significance** and a single summary per area and year
+:::
+::::
+
+## Slides, report and code {.center}
+
+:::: {.columns}
+::: {.column width="34%"}
+**These slides**
+
+[theophilemt92.github.io/gfw-med-data-lab/<br>climate-env-ais/Quarto_slides_2C_red_mullet.html](https://theophilemt92.github.io/gfw-med-data-lab/climate-env-ais/Quarto_slides_2C_red_mullet.html){.small}
+:::
+::: {.column width="34%"}
+**Full report** (Section 2c)
+
+[theophilemt92.github.io/gfw-med-data-lab/<br>climate-env-ais/Quarto_report_CLIMATE-ENV-AIS.html](https://theophilemt92.github.io/gfw-med-data-lab/climate-env-ais/Quarto_report_CLIMATE-ENV-AIS.html#c.-red-mullet-the-groups-spatio-temporal-model-gsa-6-and-adriatic){.small}
+:::
+::: {.column width="32%"}
+**Code**
+
+[github.com/TheophileMt92/<br>gfw-med-data-lab](https://github.com/TheophileMt92/gfw-med-data-lab/tree/main/climate-env-ais){.small}
+:::
+::::
+
+<span class="small muted">MEDITS from JRC; environment from Copernicus Marine; trawling effort from Global Fishing Watch. Figures and numbers from the report rendered `r k$rendered`.</span>

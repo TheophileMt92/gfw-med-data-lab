@@ -1496,6 +1496,25 @@ report_numbers <- list(
   fleet_more_mhw   = mean(fishing.change$difference > 0),
   cfvi_exp_zero    = mean(cfvi$exposure == 0, na.rm = TRUE),
   cfvi_press_med   = median(cfvi$pressure, na.rm = TRUE),
+  # Section 2c (group's sdmTMB model)
+  grp_hauls        = c(`GSA 6` = sum(mb_g$region == "GSA 6"), `GSAs 17-18` = sum(mb_g$region == "GSAs 17-18")),
+  grp_absent       = c(`GSA 6` = mean(mb_g$biomass_kgkm2[mb_g$region == "GSA 6"] == 0),
+                       `GSAs 17-18` = mean(mb_g$biomass_kgkm2[mb_g$region == "GSAs 17-18"] == 0)),
+  grp_thin_6       = sum(mb_g$region == "GSA 6" & mb_g$year == 2020),
+  grp_thin_1718    = sum(mb_g$region == "GSAs 17-18" & mb_g$year == 2017),
+  grp_depth_drop   = setNames(1 - exp(100 * fe[[3]]), fe$region),
+  grp_temp_rise    = setNames(exp(fe[[4]]) - 1, fe$region),
+  grp_eps_max      = tapply(abs(pred_g$epsilon_st), pred_g$region, max),
+  grp_idx_6_change = with(filter(idx_g, region == "GSA 6"), biomass_t[year == 2021] / biomass_t[year == 2015] - 1),
+  grp_idx_1718_rng = range(idx_g$rel[idx_g$region == "GSAs 17-18"]),
+  grp_gam_change   = median(mull.change6$perc.change.env, na.rm = TRUE),
+  grp_shallow_cells = with(filter(pred_g, region == "GSA 6"), mean(depth < min(mb_g$depth[mb_g$region == "GSA 6"]))),
+  grp_shallow_bio  = with(filter(pred_g, region == "GSA 6"),
+                          sum((dens * cell_km2)[depth < min(mb_g$depth[mb_g$region == "GSA 6"])]) / sum(dens * cell_km2)),
+  grp_min_depth    = floor(min(mb_g$depth[mb_g$region == "GSA 6"])),
+  grp_perc_med     = tapply(hsi_chg$perc, hsi_chg$region, median),
+  grp_hsi_lower    = tapply(hsi_chg$diff < 0, hsi_chg$region, mean),
+  grp_perc_max_6   = max(hsi_chg$perc[hsi_chg$region == "GSA 6"]),
   rendered         = format(Sys.time(), "%d %b %Y, %H:%M")
 )
 saveRDS(report_numbers, "outputs/report_numbers.rds")
