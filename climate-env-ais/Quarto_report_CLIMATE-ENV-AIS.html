@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="climate-env-ais working group">
-<meta name="dcterms.date" content="2026-10-20">
+<meta name="dcterms.date" content="2026-10-21">
 
 <title>Climate, environment and AIS fishing effort in GSA 6</title>
 <style>
@@ -954,18 +954,39 @@ margin: 1.5rem auto;
 <p class="subtitle">Species distributions, marine heatwaves and a climate-fisheries vulnerability index for northern Spain. Working group report, Global Fishing Watch Mediterranean Data Lab</p>
 <p class="author">climate-env-ais working group</p>
 
-<p class="date">2026-10-20</p>
+<p class="date">2026-10-21</p>
 </header>
 
 <nav id="TOC" role="doc-toc">
-    <h2 id="toc-title">Table of contents</h2>
+    <h2 id="toc-title">Contents</h2>
    
   <ul>
   <li><a href="#overview" id="toc-overview">Overview</a></li>
-  <li><a href="#data-preparation" id="toc-data-preparation">1. Data preparation</a></li>
-  <li><a href="#a.-species-distribution-model-total-fish-abundance" id="toc-a.-species-distribution-model-total-fish-abundance">2a. Species distribution model: total fish abundance</a></li>
-  <li><a href="#b.-species-distribution-model-red-mullet" id="toc-b.-species-distribution-model-red-mullet">2b. Species distribution model: red mullet</a></li>
-  <li><a href="#marine-heatwaves-and-fleet-behaviour" id="toc-marine-heatwaves-and-fleet-behaviour">3. Marine heatwaves and fleet behaviour</a></li>
+  <li><a href="#data-preparation" id="toc-data-preparation">1. Data preparation</a>
+  <ul>
+  <li><a href="#data-sources" id="toc-data-sources">Data sources</a></li>
+  <li><a href="#the-merged-dataset" id="toc-the-merged-dataset">The merged dataset</a></li>
+  <li><a href="#what-ais-sees-over-time" id="toc-what-ais-sees-over-time">What AIS sees over time</a></li>
+  </ul></li>
+  <li><a href="#a.-species-distribution-model-total-fish-abundance" id="toc-a.-species-distribution-model-total-fish-abundance">2a. Species distribution model: total fish abundance</a>
+  <ul>
+  <li><a href="#response-variable" id="toc-response-variable">Response variable</a></li>
+  <li><a href="#collinearity" id="toc-collinearity">Collinearity</a></li>
+  <li><a href="#gam-fitting-and-selection" id="toc-gam-fitting-and-selection">GAM fitting and selection</a></li>
+  <li><a href="#prediction-and-habitat-change" id="toc-prediction-and-habitat-change">Prediction and habitat change</a></li>
+  </ul></li>
+  <li><a href="#b.-species-distribution-model-red-mullet" id="toc-b.-species-distribution-model-red-mullet">2b. Species distribution model: red mullet</a>
+  <ul>
+  <li><a href="#response-variable-1" id="toc-response-variable-1">Response variable</a></li>
+  <li><a href="#collinearity-1" id="toc-collinearity-1">Collinearity</a></li>
+  <li><a href="#gam-fitting" id="toc-gam-fitting">GAM fitting</a></li>
+  <li><a href="#prediction-and-habitat-change-1" id="toc-prediction-and-habitat-change-1">Prediction and habitat change</a></li>
+  </ul></li>
+  <li><a href="#marine-heatwaves-and-fleet-behaviour" id="toc-marine-heatwaves-and-fleet-behaviour">3. Marine heatwaves and fleet behaviour</a>
+  <ul>
+  <li><a href="#detecting-marine-heatwaves" id="toc-detecting-marine-heatwaves">Detecting marine heatwaves</a></li>
+  <li><a href="#trawling-in-heatwave-and-non-heatwave-summers" id="toc-trawling-in-heatwave-and-non-heatwave-summers">Trawling in heatwave and non-heatwave summers</a></li>
+  </ul></li>
   <li><a href="#climate-fisheries-vulnerability-index" id="toc-climate-fisheries-vulnerability-index">4. Climate-fisheries vulnerability index</a></li>
   <li><a href="#summary-and-next-steps" id="toc-summary-and-next-steps">Summary and next steps</a></li>
   </ul>
@@ -2543,6 +2564,156 @@ Figure 19: The three CFVI components and the combined index for GSA 6.
     </div>
   </div>
 </footer>
+<!-- Left sidebar table of contents and centred reading column for theme: none reports.
+     Add to YAML: include-after-body: [template/footer.html, template/toc-sidebar.html] -->
+<style>
+#report-main {
+max-width: 860px;
+margin: 0 auto;
+padding: 1rem 2rem 3rem;
+box-sizing: border-box;
+}
+#report-main img { max-width: 100%; height: auto; }
+#report-main pre { overflow-x: auto; }
+#report-main table { max-width: 100%; }
+#report-main td code { white-space: normal; overflow-wrap: anywhere; }
+#TOC {
+max-width: 860px;
+margin: 1.5rem auto 0;
+padding: 0 2rem;
+box-sizing: border-box;
+line-height: 1.35;
+}
+#TOC #toc-title {
+font-family: 'Source Sans 3', sans-serif;
+font-size: 0.78rem;
+font-weight: 600;
+letter-spacing: 0.08em;
+text-transform: uppercase;
+color: var(--text-secondary);
+border: none;
+margin: 0 0 0.6rem;
+padding: 0 0 0 0.7rem;
+}
+#TOC ul { list-style: none; margin: 0; padding: 0; }
+#TOC ul ul { padding-left: 0.85rem; }
+#TOC a {
+display: block;
+padding: 0.22rem 0.7rem;
+border-left: 2px solid transparent;
+color: var(--text-secondary);
+font-size: 0.9rem;
+text-decoration: none;
+}
+#TOC ul ul a { font-size: 0.82rem; padding-top: 0.15rem; padding-bottom: 0.15rem; }
+#TOC a:hover { color: var(--accent); }
+#TOC a.active {
+color: var(--ocean-deep);
+font-weight: 600;
+border-left-color: var(--accent);
+background: rgba(26, 127, 168, 0.06);
+}
+@media (max-width: 1199px) {
+#TOC ul ul { display: none; }
+}
+@media (min-width: 1200px) {
+#TOC {
+position: fixed;
+left: 1.25rem;
+top: 1rem;
+width: 270px;
+max-height: calc(100vh - 2rem);
+margin: 0;
+padding: 0.25rem 0.5rem 0.25rem 0;
+overflow-y: auto;
+border-left: 2px solid var(--rule);
+background: #ffffff;
+z-index: 20;
+}
+#report-main {
+margin-left: max(310px, calc(50vw - 275px));
+margin-right: auto;
+}
+}
+@media print {
+#TOC { display: none; }
+#report-main { margin: 0 auto; }
+}
+</style>
+
+<script>
+(function () {
+  var toc = document.getElementById('TOC');
+  var title = document.getElementById('title-block-header');
+  var footer = document.querySelector('footer.ocean-footer');
+  var header = document.querySelector('.ocean-header');
+  if (!title) return;
+
+  // Wrap the report body in a <main> so it can be given a readable width
+  var main = document.createElement('main');
+  main.id = 'report-main';
+  title.parentNode.insertBefore(main, title);
+  var node = main.nextSibling;
+  while (node && node !== footer) {
+    var next = node.nextSibling;
+    var skip = node.nodeType === 1 &&
+      (node.tagName === 'SCRIPT' || node.tagName === 'STYLE' ||
+       node.classList.contains('glightbox-container'));
+    if (!skip) main.appendChild(node);
+    node = next;
+  }
+  if (!toc) return;
+
+  // Contents sits above the main column (sidebar on wide screens, via CSS)
+  main.parentNode.insertBefore(toc, main);
+
+  var wide = window.matchMedia('(min-width: 1200px)');
+  var links = Array.prototype.slice.call(toc.querySelectorAll('a[href^="#"]'));
+  var targets = links.map(function (a) {
+    return document.getElementById(decodeURIComponent(a.getAttribute('href').slice(1)));
+  });
+
+  // Keep the sidebar below the ocean banner and above the footer
+  function place() {
+    if (!wide.matches) { toc.style.top = ''; toc.style.maxHeight = ''; return; }
+    var top = Math.max(16, (header ? header.getBoundingClientRect().bottom : 0) + 16);
+    var bottom = Math.min(window.innerHeight,
+      footer ? footer.getBoundingClientRect().top : window.innerHeight) - 16;
+    toc.style.top = top + 'px';
+    toc.style.maxHeight = Math.max(120, bottom - top) + 'px';
+  }
+
+  // Highlight the section currently being read
+  var current = null;
+  function spy() {
+    var active = null;
+    for (var i = 0; i < targets.length; i++) {
+      if (targets[i] && targets[i].getBoundingClientRect().top < 140) active = links[i];
+    }
+    if (active === current) return;
+    if (current) current.classList.remove('active');
+    if (active) {
+      active.classList.add('active');
+      if (wide.matches) {
+        var t = active.offsetTop, h = active.offsetHeight;
+        if (t < toc.scrollTop + 40) toc.scrollTop = t - 40;
+        else if (t + h > toc.scrollTop + toc.clientHeight - 40) toc.scrollTop = t + h - toc.clientHeight + 40;
+      }
+    }
+    current = active;
+  }
+
+  var ticking = false;
+  function update() {
+    if (ticking) return;
+    ticking = true;
+    window.requestAnimationFrame(function () { place(); spy(); ticking = false; });
+  }
+  window.addEventListener('scroll', update, { passive: true });
+  window.addEventListener('resize', update);
+  update();
+})();
+</script>
 <script id="quarto-html-after-body" type="application/javascript">
 window.document.addEventListener("DOMContentLoaded", function (event) {
   const toggleBodyColorMode = (bsSheetEl) => {
@@ -2967,7 +3138,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
   }
 });
 </script>
-<script>var lightboxQuarto = GLightbox({"selector":".lightbox","loop":false,"descPosition":"bottom","openEffect":"zoom","closeEffect":"zoom"});
+<script>var lightboxQuarto = GLightbox({"selector":".lightbox","closeEffect":"zoom","openEffect":"zoom","loop":false,"descPosition":"bottom"});
 (function() {
   let previousOnload = window.onload;
   window.onload = () => {

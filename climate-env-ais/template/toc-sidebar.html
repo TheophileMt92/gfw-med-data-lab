@@ -1,0 +1,154 @@
+<!-- Left sidebar table of contents and centred reading column for theme: none reports.
+     Add to YAML: include-after-body: [template/footer.html, template/toc-sidebar.html] -->
+<style>
+  #report-main {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 1rem 2rem 3rem;
+    box-sizing: border-box;
+  }
+  #report-main img { max-width: 100%; height: auto; }
+  #report-main pre { overflow-x: auto; }
+  #report-main table { max-width: 100%; }
+  #report-main td code { white-space: normal; overflow-wrap: anywhere; }
+
+  #TOC {
+    max-width: 860px;
+    margin: 1.5rem auto 0;
+    padding: 0 2rem;
+    box-sizing: border-box;
+    line-height: 1.35;
+  }
+  #TOC #toc-title {
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    border: none;
+    margin: 0 0 0.6rem;
+    padding: 0 0 0 0.7rem;
+  }
+  #TOC ul { list-style: none; margin: 0; padding: 0; }
+  #TOC ul ul { padding-left: 0.85rem; }
+  #TOC a {
+    display: block;
+    padding: 0.22rem 0.7rem;
+    border-left: 2px solid transparent;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    text-decoration: none;
+  }
+  #TOC ul ul a { font-size: 0.82rem; padding-top: 0.15rem; padding-bottom: 0.15rem; }
+  #TOC a:hover { color: var(--accent); }
+  #TOC a.active {
+    color: var(--ocean-deep);
+    font-weight: 600;
+    border-left-color: var(--accent);
+    background: rgba(26, 127, 168, 0.06);
+  }
+
+  @media (max-width: 1199px) {
+    #TOC ul ul { display: none; }
+  }
+
+  @media (min-width: 1200px) {
+    #TOC {
+      position: fixed;
+      left: 1.25rem;
+      top: 1rem;
+      width: 270px;
+      max-height: calc(100vh - 2rem);
+      margin: 0;
+      padding: 0.25rem 0.5rem 0.25rem 0;
+      overflow-y: auto;
+      border-left: 2px solid var(--rule);
+      background: #ffffff;
+      z-index: 20;
+    }
+    #report-main {
+      margin-left: max(310px, calc(50vw - 275px));
+      margin-right: auto;
+    }
+  }
+
+  @media print {
+    #TOC { display: none; }
+    #report-main { margin: 0 auto; }
+  }
+</style>
+
+<script>
+(function () {
+  var toc = document.getElementById('TOC');
+  var title = document.getElementById('title-block-header');
+  var footer = document.querySelector('footer.ocean-footer');
+  var header = document.querySelector('.ocean-header');
+  if (!title) return;
+
+  // Wrap the report body in a <main> so it can be given a readable width
+  var main = document.createElement('main');
+  main.id = 'report-main';
+  title.parentNode.insertBefore(main, title);
+  var node = main.nextSibling;
+  while (node && node !== footer) {
+    var next = node.nextSibling;
+    var skip = node.nodeType === 1 &&
+      (node.tagName === 'SCRIPT' || node.tagName === 'STYLE' ||
+       node.classList.contains('glightbox-container'));
+    if (!skip) main.appendChild(node);
+    node = next;
+  }
+  if (!toc) return;
+
+  // Contents sits above the main column (sidebar on wide screens, via CSS)
+  main.parentNode.insertBefore(toc, main);
+
+  var wide = window.matchMedia('(min-width: 1200px)');
+  var links = Array.prototype.slice.call(toc.querySelectorAll('a[href^="#"]'));
+  var targets = links.map(function (a) {
+    return document.getElementById(decodeURIComponent(a.getAttribute('href').slice(1)));
+  });
+
+  // Keep the sidebar below the ocean banner and above the footer
+  function place() {
+    if (!wide.matches) { toc.style.top = ''; toc.style.maxHeight = ''; return; }
+    var top = Math.max(16, (header ? header.getBoundingClientRect().bottom : 0) + 16);
+    var bottom = Math.min(window.innerHeight,
+      footer ? footer.getBoundingClientRect().top : window.innerHeight) - 16;
+    toc.style.top = top + 'px';
+    toc.style.maxHeight = Math.max(120, bottom - top) + 'px';
+  }
+
+  // Highlight the section currently being read
+  var current = null;
+  function spy() {
+    var active = null;
+    for (var i = 0; i < targets.length; i++) {
+      if (targets[i] && targets[i].getBoundingClientRect().top < 140) active = links[i];
+    }
+    if (active === current) return;
+    if (current) current.classList.remove('active');
+    if (active) {
+      active.classList.add('active');
+      if (wide.matches) {
+        var t = active.offsetTop, h = active.offsetHeight;
+        if (t < toc.scrollTop + 40) toc.scrollTop = t - 40;
+        else if (t + h > toc.scrollTop + toc.clientHeight - 40) toc.scrollTop = t + h - toc.clientHeight + 40;
+      }
+    }
+    current = active;
+  }
+
+  var ticking = false;
+  function update() {
+    if (ticking) return;
+    ticking = true;
+    window.requestAnimationFrame(function () { place(); spy(); ticking = false; });
+  }
+  window.addEventListener('scroll', update, { passive: true });
+  window.addEventListener('resize', update);
+  update();
+})();
+</script>

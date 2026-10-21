@@ -11,10 +11,13 @@ format:
     code-summary: "Show code"
     css: template/custom.css
     include-before-body: template/header.html
-    include-after-body: template/footer.html
+    include-after-body:
+      - template/footer.html
+      - template/toc-sidebar.html
     theme: none
     toc: true
-    toc-depth: 2
+    toc-depth: 3
+    toc-title: "Contents"
     number-sections: false
     fig-align: center
     fig-dpi: 150
