@@ -154,21 +154,40 @@ GSA 6 and the Adriatic (GSAs 17-18), 2014-2021 · report Section 2c
 :::: {.columns}
 ::: {.column width="52%"}
 - **Biomass** (kg/km²), MEDITS 2014-2021: `r num(k$grp_hauls[["GSA 6"]])` hauls in GSA 6, `r num(k$grp_hauls[["GSAs 17-18"]])` in the Adriatic
-- **sdmTMB**, reconstructed from the saved predictions (script not shared yet):
+- **sdmTMB**, Tweedie, fitted separately in each area:
 
-<p style="text-align:center; margin:0.8em 0;">log(biomass) = **depth + bottom temp.** + **ω** (spatial) + **ε** (by year)</p>
+<p style="text-align:center; margin:0.8em 0;">log(biomass) = **bottom temp. + depth** + **ω** (spatial) + **ε** (AR(1) by year)</p>
 
-- No year effect: change over time comes only from **bottom temperature** and **ε**
+- Both models converge; observed vs fitted r = `r num(k$grp_cor[["GSA 6"]], 0.01)` (GSA 6) and `r num(k$grp_cor[["GSAs 17-18"]], 0.01)` (Adriatic)
 :::
 ::: {.column width="48%"}
 | | GSA 6 | GSAs 17-18 |
 |---|---|---|
 | Per +100 m depth | −`r pc(k$grp_depth_drop[["GSA 6"]])` | −`r pc(k$grp_depth_drop[["GSAs 17-18"]])` |
-| Per +1 °C bottom temp. | `r pcs(100 * k$grp_temp_rise[["GSA 6"]])` | `r pcs(100 * k$grp_temp_rise[["GSAs 17-18"]])` |
+| Per +1 °C bottom temp. | `r pcs(100 * k$grp_temp$per_c[1])` | `r pcs(100 * k$grp_temp$per_c[2])` |
 | Largest \|ε\| | `r num(k$grp_eps_max[["GSA 6"]], 0.1)` | `r num(k$grp_eps_max[["GSAs 17-18"]], 0.1)` |
 
 ::: {.caveat}
-GSA 6: `r pc(k$grp_shallow_cells)` of the grid is shallower than the shallowest haul but holds **`r pc(k$grp_shallow_bio)`** of predicted biomass (extrapolation).
+**Discussion point:** in GSA 6, `r pc(k$grp_shallow_cells)` of the grid is shallower than the shallowest haul but holds **`r pc(k$grp_shallow_bio)`** of predicted biomass (extrapolation).
+:::
+:::
+::::
+
+## Bottom temperature: two areas compared
+
+:::: {.columns}
+::: {.column width="58%"}
+![](figures/fig-grp-temp-1.png){width="100%"}
+:::
+::: {.column width="42%"}
+[`r pcs(100 * k$grp_temp$per_c[2])`]{.big-number}
+[biomass per +1 °C in the Adriatic (95% CI `r pcs(100 * k$grp_temp$lo[2])` to `r pcs(100 * k$grp_temp$hi[2])`)]{.big-label}
+
+[`r pcs(100 * k$grp_temp$per_c[1])`]{.big-number}
+[per +1 °C in GSA 6 (95% CI `r pcs(100 * k$grp_temp$lo[1])` to `r pcs(100 * k$grp_temp$hi[1])`): not significant]{.big-label}
+
+::: {.caveat}
+**Discussion point:** GSA 6 hauls span a narrow range of bottom temperatures, so the effect is poorly constrained there and depth dominates.
 :::
 :::
 ::::
@@ -183,11 +202,11 @@ GSA 6: `r pc(k$grp_shallow_cells)` of the grid is shallower than the shallowest 
 [`r pcs(100 * k$grp_idx_6_change)`]{.big-number}
 [GSA 6, 2015 → 2021 (Tweedie GAM: `r pcs(k$grp_gam_change)` in density)]{.big-label}
 
-[`r pc(k$grp_idx_1718_rng[1])`-`r pc(k$grp_idx_1718_rng[2])`]{.big-number}
-[Adriatic, range relative to its mean]{.big-label}
+[`r pc(k$grp_idx_1718_rng[1])` to `r pc(k$grp_idx_1718_rng[2])`]{.big-number}
+[The Adriatic index fluctuates more, between `r pc(k$grp_idx_1718_rng[1])` and `r pc(k$grp_idx_1718_rng[2])` of its 2014-2021 mean]{.big-label}
 
 ::: {.caveat}
-Each area peaks in its **least-sampled year** (GSA 6 2020: `r k$grp_thin_6` hauls; Adriatic 2017: `r k$grp_thin_1718`). Needs index standard errors.
+**Discussion point:** each area peaks in its **least-sampled year** (GSA 6 2020: `r k$grp_thin_6` hauls; Adriatic 2017: `r k$grp_thin_1718`). Needs index standard errors.
 :::
 :::
 ::::
@@ -209,7 +228,7 @@ Each area peaks in its **least-sampled year** (GSA 6 2020: `r k$grp_thin_6` haul
 :::
 ::: {.column width="50%"}
 ::: {.caveat}
-% change explodes where HSI ≈ 0 (up to `r pcs(k$grp_perc_max_6)` in one GSA 6 cell): prefer the **HSI difference** or a **2014-2021 trend**.
+**Discussion point:** the % change explodes where HSI ≈ 0 (up to `r pcs(k$grp_perc_max_6)` in one GSA 6 cell): prefer the **HSI difference** or a **2014-2021 trend**.
 :::
 :::
 ::::
@@ -218,7 +237,7 @@ Each area peaks in its **least-sampled year** (GSA 6 2020: `r k$grp_thin_6` haul
 
 :::: {.columns}
 ::: {.column width="55%"}
-![](data/group/correlation_map_2700.jpeg){width="100%"}
+![](data/group/correlation_map_2700.jpeg){width="86%" fig-align="center"}
 :::
 ::: {.column width="45%"}
 Local correlation between red mullet and **GFW trawling effort**, by year
@@ -228,7 +247,7 @@ Local correlation between red mullet and **GFW trawling effort**, by year
 - Adriatic: a positive band through the north-western and central basin every year
 
 ::: {.caveat}
-Method not yet shared. Correlations near ±1 are common in small windows: add a **significance test** or a **whole-area overlap measure**.
+**Discussion point:** correlations near ±1 are common in small windows: add a **significance test** or a **whole-area overlap measure**.
 :::
 :::
 ::::
@@ -288,7 +307,7 @@ Mean of three 0-1 scores: **heatwave exposure + habitat loss + fishing pressure*
 - Identify which environmental term drives the 2015-2021 decline
 - Check it against the observed MEDITS trend
 - Feed red mullet habitat change into the vulnerability index in place of total fish
-- Spatio-temporal model: share the scripts, add index standard errors, predict within the sampled depth range
+- Spatio-temporal model: index standard errors, cross-validation, predict within the sampled depth range
 :::
 ::::
 
