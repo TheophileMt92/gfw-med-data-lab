@@ -1,7 +1,7 @@
 # climate-env-ais: review notes
 
 Prepared by Théophile Mouton for the climate-env-ais working group, Global Fishing Watch Mediterranean Data Lab.
-**Last updated: 21 Oct 2026, 12:47 (Rome time).**
+**Last updated: 21 Oct 2026, 15:14 (Rome time).**
 
 **Live report: [Climate, environment and AIS fishing effort in GSA 6](https://theophilemt92.github.io/gfw-med-data-lab/climate-env-ais/Quarto_report_CLIMATE-ENV-AIS.html)**
 
@@ -39,6 +39,19 @@ Points to discuss:
 - **Vulnerability index**: still uses total fish habitat change. Next step: feed in the red mullet change instead.
 
 New outputs written by the report: `outputs/MULLBAR_gam_prediction_GSA6.csv`, `outputs/MULLBAR_change_GSA6.csv`. None of the group's existing outputs were modified.
+
+## Group work on red mullet, 21 Oct morning (report Section 2c)
+
+Contributors: Walter Zupa (MEDITS-environment merges), D. Panzeri (haul tables, effort and prediction grids, model predictions), Pamela Lattanzi (Recap, exploration, prediction maps, HSI), Stef (EDA for GSAs 17-18).
+
+- **Scope:** red mullet biomass (kg/km²) in GSA 6 and GSAs 17-18, 2014-2021 (no Croatian survey in 2012-2013). 617 and 1,631 valid hauls; thin years are GSA 6 in 2020 (39 hauls) and GSAs 17-18 in 2017 (61 hauls).
+- **Model:** sdmTMB, reconstructed from the shared predictions (`pred_6.rds`, `pred_1718.rds`) because the script is not shared yet. The fixed effects are exactly linear in depth and bottom temperature (no year effects): biomass falls 94% (GSA 6) and 68% (GSAs 17-18) per 100 m and rises ~17-18% per +1 °C. Plus a spatial field (persistent hotspots) and a spatio-temporal field (small in GSA 6, large in the Adriatic, ε up to ±2.9).
+- **Biomass index** (sum of predicted biomass × cell area): GSA 6 broadly stable, -3% from 2015 to 2021 (the Tweedie GAM of Section 2b gives -12% in density); Adriatic fluctuates between 77% and 146% of its mean.
+- **To discuss:**
+  - The highest index year in each area is its least-sampled year (GSA 6 2020, Adriatic 2017). Needs `get_index()` standard errors from the fitted model.
+  - The GSA 6 prediction grid extends to 11 m and 22 °C, beyond the hauls (35-300 m, ≤ 17.6 °C). Cells shallower than 35 m are 12% of the grid but 34% of predicted biomass.
+  - The HSI rescaling to 0-1 is undocumented.
+- **Still to share:** the sdmTMB fitting script, the data-preparation script (`MB_*.rds`, effort and prediction grids) and the HSI rescaling.
 
 ## Issues in the existing pipeline
 
