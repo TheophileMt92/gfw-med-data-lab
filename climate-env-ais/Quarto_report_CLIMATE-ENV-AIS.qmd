@@ -189,20 +189,7 @@ saveRDS(hauls_map, "outputs/hauls_map.rds")   # read by the slides
 haul_map(hauls_map, height = 520)
 ```
 
-MEDITS hauls 2012-2021, coloured by GSA, with GSA 6 in gold. Hover over a haul for its date, depth, bottom temperature, SST and the AIS trawling effort in its grid cell; drag to pan and scroll to zoom.
-
-```{r fig-hauls}
-#| fig-cap: "Number of MEDITS hauls per year and GSA (same colours as the map)."
-#| fig-width: 10
-#| fig-height: 4
-
-hauls |> count(GSA, YEAR) |>
-  ggplot(aes(YEAR, n, fill = factor(GSA))) + geom_col() +
-  scale_fill_manual(values = gsa_colours(hauls$GSA)) +
-  scale_x_continuous(breaks = 2012:2021) +
-  theme_ocean() + theme(legend.position = "right") +
-  labs(x = NULL, y = "Hauls", fill = "GSA")
-```
+MEDITS hauls 2012-2021, coloured by GSA, with GSA 6 in gold. Hover over a haul for its date, depth, bottom temperature, SST and the AIS trawling effort in its grid cell; drag to pan and scroll to zoom. Sampling effort is broadly stable over the period, with `r hpy <- count(hauls, YEAR); paste0(fmt(min(hpy$n)), "-", fmt(max(hpy$n)))` hauls per year.
 
 ```{r fig-sst}
 #| fig-cap: "Sea surface temperature at the time of each haul."
