@@ -1104,3 +1104,53 @@ The pipeline links survey, environmental, heatwave and AIS data into a coherent 
 For **red mullet** (Section 2b), the model with zeros, a Tweedie family and depth explains about half the deviance and predicts a widespread decline in June density from 2015 to 2021 that holds when fishing effort is held constant. Natural next steps are to identify which environmental term drives the decline, check it against the observed MEDITS trend, and feed the red mullet habitat change into the vulnerability index in place of total fish abundance.
 
 Smaller fixes (grid alignment in the haul join, MHW baseline length, weighted depth and distance means, the unfinished daily block in Script 1) are listed in `review_notes.md`.
+
+```{r export-for-slides}
+#| echo: false
+#| cache: false
+
+# Share this report's figures and key numbers with the slides
+# (slides/Quarto_slides_CLIMATE-ENV-AIS.qmd reads figures/ and outputs/report_numbers.rds).
+dir.create("figures", showWarnings = FALSE)
+fig_dir <- dirname(knitr::fig_path(""))
+invisible(file.copy(list.files(fig_dir, pattern = "\\.png$", full.names = TRUE),
+                    "figures", overwrite = TRUE))
+
+pick <- function(df, yr, col) df[[col]][df$YEAR == yr]
+report_numbers <- list(
+  n_hauls_all      = nrow(hauls),
+  n_gsa            = n_distinct(hauls$GSA),
+  n_hauls_gsa6     = sum(hauls$GSA == 6),
+  ais_match_2012   = pick(ais_cov, 2012, "matched"),
+  ais_match_2021   = pick(ais_cov, 2021, "matched"),
+  ais_hours_2012   = pick(ais_cov, 2012, "mean_hours"),
+  ais_hours_2015   = pick(ais_cov, 2015, "mean_hours"),
+  botso_vif        = vif_tab$VIF[vif_tab$variable == "botso"],
+  r_botso_depth    = cor.mat["botso", "MEAN_DEPTH"],
+  gam2_n           = nobs(gam2),
+  gam2_dev         = summary(gam2)$dev.expl,
+  gam2_p_fishing   = summary(gam2)$s.table["s(fishing_hours)", 4],
+  kcheck_min_p     = min(kc$`p-value`),
+  tf_change_log    = median(fish.change6$perc.change, na.rm = TRUE),
+  tf_change_bt     = median(fish.change6$perc.change.bt, na.rm = TRUE),
+  mb_present       = sum(mull6$present),
+  mb_hauls         = nrow(mull6),
+  mb_vif_max       = max(vif_manual(mb_vars)),
+  mb_dev_env       = summary(mb_env)$dev.expl,
+  mb_dev_depth     = summary(mb_depth)$dev.expl,
+  mb_aic_drop      = AIC(mb_env) - AIC(mb_depth),
+  mb_p_salinity    = summary(mb_depth)$s.table["s(so)", 4],
+  mb_cells         = nrow(mull.change6),
+  mb_change_full   = median(mull.change6$perc.change, na.rm = TRUE),
+  mb_change_env    = median(mull.change6$perc.change.env, na.rm = TRUE),
+  mb_decline_env   = mean(mull.change6$perc.change.env < 0, na.rm = TRUE),
+  mb_min_env       = min(mull.change6$perc.change.env, na.rm = TRUE),
+  mb_max_env       = max(mull.change6$perc.change.env, na.rm = TRUE),
+  mhw_cum          = setNames(mhw.gsa$mhw_cum_intensity, mhw.gsa$YEAR),
+  fleet_more_mhw   = mean(fishing.change$difference > 0),
+  cfvi_exp_zero    = mean(cfvi$exposure == 0, na.rm = TRUE),
+  cfvi_press_med   = median(cfvi$pressure, na.rm = TRUE),
+  rendered         = format(Sys.time(), "%d %b %Y, %H:%M")
+)
+saveRDS(report_numbers, "outputs/report_numbers.rds")
+```

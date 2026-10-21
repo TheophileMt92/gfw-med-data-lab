@@ -1,0 +1,96 @@
+/*-- scss:defaults --*/
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600&family=Source+Sans+3:wght@300;400;600&family=Source+Code+Pro&display=swap');
+
+$ocean-deep:    #062d4a;
+$ocean-mid:     #0d4f7a;
+$ocean-surface: #1a7fa8;
+$ocean-light:   #4eb8d4;
+$ocean-foam:    #c8eaf4;
+$sand:          #e4b363;
+$alert:         #c0392b;
+
+$body-bg: #ffffff;
+$body-color: #1a2332;
+$link-color: $ocean-surface;
+$presentation-heading-color: $ocean-deep;
+$presentation-heading-font: 'Playfair Display', Georgia, serif;
+$presentation-heading-font-weight: 600;
+$font-family-sans-serif: 'Source Sans 3', sans-serif;
+$presentation-font-size-root: 34px;
+$presentation-h2-font-size: 1.45em;
+$code-block-font-size: 0.6em;
+
+/*-- scss:rules --*/
+.reveal, .reveal .slides, .reveal .footer, .reveal p, .reveal li {
+  font-family: 'Source Sans 3', 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* Ocean gradient behind the title slide and section breaks */
+.reveal .slide-background.quarto-title-block .slide-background-content,
+.reveal .slide-background.section-break .slide-background-content {
+  background: linear-gradient(160deg, #062d4a 0%, #0d4f7a 45%, #1a7fa8 80%, #4eb8d4 100%);
+}
+.reveal .slides section h2 {
+  border-bottom: 3px solid rgba(26, 127, 168, 0.25);
+  padding-bottom: 0.25em;
+  margin-bottom: 0.6em;
+}
+
+.reveal ul { line-height: 1.35; }
+.reveal li { margin-bottom: 0.35em; }
+.reveal li::marker { color: $ocean-surface; }
+
+.reveal .big-number {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 1.9em;
+  color: $ocean-mid;
+  line-height: 1;
+  display: block;
+}
+.reveal .big-label {
+  font-size: 0.62em;
+  color: #445566;
+  display: block;
+  margin-bottom: 0.7em;
+}
+
+.reveal .caveat {
+  border-left: 5px solid $sand;
+  background: #fdf6e8;
+  padding: 0.45em 0.8em;
+  font-size: 0.72em;
+  margin-top: 0.6em;
+  border-radius: 0 4px 4px 0;
+}
+
+.reveal .small { font-size: 0.72em; }
+.reveal .muted { color: #5a6b7c; }
+
+.reveal img { border-radius: 2px; }
+
+/* Title slide on an ocean gradient */
+#title-slide {
+  text-align: left;
+}
+.reveal .slides > section#title-slide::before { content: none; }
+.reveal .quarto-title-block .title { font-size: 1.9em; color: #ffffff; line-height: 1.15; }
+.reveal .quarto-title-block .subtitle { color: $ocean-foam; font-size: 0.95em; margin-top: 0.5em; }
+.reveal .quarto-title-block .quarto-title-author-name,
+.reveal .quarto-title-block .date { color: #e6f4f9; font-size: 0.75em; }
+.reveal .quarto-title-block .quarto-title-authors { justify-content: flex-start; }
+
+/* Section-break slides */
+.reveal .slides section.section-break h2 {
+  color: #ffffff;
+  border: none;
+  font-size: 1.8em;
+}
+.reveal .slides section.section-break p { color: $ocean-foam; }
+
+.reveal .slide-number { color: $ocean-mid; background: transparent; }
+.reveal .progress { color: $ocean-surface; }
+
+.reveal .footer { color: #7b8a99; font-size: 0.42em; }
+
+/* Big numbers in the sans face (Playfair renders arrows oddly) */
+.reveal .big-number { font-family: 'Source Sans 3', sans-serif; font-weight: 600; font-size: 1.7em; }
