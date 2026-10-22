@@ -1464,6 +1464,7 @@ fleet_c <- read.csv("outputs/fleet_MHW_cells.csv")
 ```
 
 ```{r fig-grp-fleet}
+#| cache: false
 #| fig-cap: "Fleet metrics for each summer (June-August), trawlers only, as the percentage difference from the area's mean over the six summers. Filled points: strong heatwave summers; open points: weak ones; bars: mean of each group. Shelf share: share of trawling hours at depths of 200 m or less, where red mullet lives. Absolute values are in the table below."
 #| fig-width: 11
 #| fig-height: 4.6
@@ -1491,6 +1492,7 @@ ggplot(fleet_long, aes(region, rel, colour = region, group = class)) +
 ```
 
 ```{r tbl-grp-fleet}
+#| cache: false
 #| tbl-cap: "Mean fleet metrics in strong and weak heatwave summers, by area (three summers each). Area: GSA 6 or GSAs 17-18. Metric: Total hours, trawling hours in June-August; Active vessels, distinct trawlers with fishing activity; Hours per vessel, total hours divided by active vessels; Mean depth (m) and Mean distance to coast (km), averages over fishing locations weighted by hours; Shelf share, share of hours at 200 m depth or less. Weak, Strong: mean over the three summers of each class. Difference: Strong relative to Weak. Range of years: smallest and largest value across all six summers."
 #| classes: tbl-compact
 
@@ -1506,6 +1508,7 @@ kable(fleet_tab2)
 ```
 
 ```{r fig-grp-fleet-map}
+#| cache: false
 #| fig-cap: "Change in trawling between strong and weak heatwave summers, on a 0.05° grid: log ratio of the mean summer trawling hours, log((strong + 1) / (weak + 1)). Red: more trawling in strong heatwave summers; blue: less. Cells fished in any of the six summers are shown, with summers without fishing counted as 0."
 #| fig-width: 11
 #| fig-height: 5.2
@@ -1575,6 +1578,7 @@ cog_g <- fleet_y |>
 ```
 
 ```{r fig-grp-overlap}
+#| cache: false
 #| fig-cap: "Overlap of trawling between every pair of summers, by area. Left: Schoener's D between effort distributions on the 0.05° grid (1 = identical). Right: Jaccard overlap of core grounds (cells holding 80% of each summer's hours). Bold years are strong heatwave summers. Pairs of a strong and a weak summer are outlined in black."
 #| fig-width: 11
 #| fig-height: 5.6
@@ -1602,6 +1606,7 @@ ov_plot("GSA 6") / ov_plot("GSAs 17-18")
 ```
 
 ```{r tbl-grp-overlap}
+#| cache: false
 #| tbl-cap: "Mean overlap of trawling between summers, by type of pair. Area: GSA 6 or GSAs 17-18. Pair: two strong heatwave summers, two weak ones, or one of each. Pairs: number of pairs of summers. Schoener's D: mean overlap of the effort distributions (1 = identical). Core grounds (Jaccard): mean overlap of the cells holding 80% of each summer's hours. Centre-of-gravity shift (km), given in the strong vs weak row: distance between the mean centre of gravity of the strong summers and that of the weak summers."
 #| classes: tbl-compact
 
@@ -1624,6 +1629,7 @@ kable(overlap_tab |> mutate(`Centre-of-gravity shift (km)` = coalesce(as.charact
 The same yearly effort can be related to the two layers of Section 2c, cell by cell: the red mullet biomass predicted for that summer's year, and that summer's heatwave intensity (nearest prediction cell, for trawling within 5 km of the prediction grid: `r percent(with(filter(fleet_y, region == "GSA 6"), sum(hours[on_grid]) / sum(hours)), 1)` of the hours in GSA 6, where much trawling is deeper than the grid, and `r percent(with(filter(fleet_y, region == "GSAs 17-18"), sum(hours[on_grid]) / sum(hours)), 1)` in the Adriatic).
 
 ```{r tbl-grp-habitat-overlap}
+#| cache: false
 #| tbl-cap: "Overlap of trawling with red mullet and with heatwaves, by area and type of summer (mean of three summers; trawling within 5 km of the prediction grid). Area: GSA 6 or GSAs 17-18. Summer: strong or weak heatwave summer. Effort in red mullet hotspots: share of trawling hours in the cells with the highest predicted red mullet biomass that year (top 25% of grid cells). Heatwave exposure ratio: mean heatwave intensity of the strong summers (cumulative, per cell) weighted by each summer's trawling hours, divided by its mean over all grid cells (above 1: trawling sits in the cells that get hotter in heatwave summers; below 1: in the cooler cells). The same heat map is used for both types of summer, so a lower ratio in strong summers than in weak ones would mean the fleet moves away from the heat."
 #| classes: tbl-compact
 
@@ -1655,6 +1661,7 @@ kable(hab_g |>
 ```
 
 ```{r fig-grp-core}
+#| cache: false
 #| fig-cap: "Core trawling grounds (cells holding 80% of the mean summer hours) in strong and weak heatwave summers, on the 0.05° grid. Blue-grey: core in both; red: core only in strong heatwave summers; dark blue: core only in weak ones."
 #| fig-width: 11
 #| fig-height: 5.2
@@ -1676,6 +1683,7 @@ core_map <- function(reg, view) {
 
 ```{r grp-overlap-nums}
 #| include: false
+#| cache: false
 ovn <- function(reg, pr, col) overlap_tab[[col]][overlap_tab$Area == reg & overlap_tab$Pair == pr]
 core_share <- core_class |> group_by(region) |> summarise(both = mean(status == "Core in both"))
 hab_m <- hab_g |> group_by(region, class) |> summarise(hot = mean(hot_share), ratio = mean(mhw_ratio), .groups = "drop")
