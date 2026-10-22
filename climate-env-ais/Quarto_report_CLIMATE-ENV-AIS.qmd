@@ -34,6 +34,8 @@ execute:
 .tbl-compact table { width: auto !important; margin: 0.5rem auto 1rem; font-size: 0.82rem; }
 .tbl-compact th, .tbl-compact td { padding: 0.3rem 0.6rem !important; white-space: nowrap; }
 blockquote { border-left: 4px solid #e4b363; background: #fdf6e8; margin: 1rem 0; padding: 0.6rem 1rem; }
+.tbl-compact { overflow-x: auto; }
+.quarto-float-caption-top { text-align: left !important; font-size: 0.86rem; line-height: 1.45; color: #3a4a5a; }
 </style>
 ```
 
@@ -87,6 +89,8 @@ This report brings together the four exercises of the working group into one rep
 | 2c | Group files (21 Oct), Section 2c | Red mullet in GSA 6 and the Adriatic with a spatio-temporal model (sdmTMB) | `pred_6.rds`, `pred_1718.rds` (group) |
 | 3 | `scripts/3_MHW.R` | Where and when do marine heatwaves occur, and does trawling differ in heatwave summers? | `outputs/MHW_gsa6.csv`, `outputs/fishing_change_MHW.csv` |
 | 4 | `scripts/4_Vulnerability Index.R` | Which areas combine heatwave exposure, habitat loss and fishing pressure? | `outputs/CFVI_GSA6.csv` |
+
+: Analysis steps of this report. Step: report section. Script: the group's R script that runs the step, or where the step is done. Question: what the step asks. Main output: files the step writes (in `data/processed/` or `outputs/`, unless marked as group files). {#tbl-overview}
 
 Steps the group already ran that call the Global Fishing Watch API, read the large prediction grid or need the daily SST NetCDF are shown but not re-run (marked *not evaluated*). Their saved outputs are loaded instead. Everything else runs when the report is rendered, including the red mullet model of Section 2b, which is new.
 
@@ -368,7 +372,8 @@ cor_heatmap(vars)
 
 The group's script uses `usdm::vif()` and `vifstep(th = 3)`. The same variance inflation factors are computed below from auxiliary regressions.
 
-```{r step2-vif}
+```{r tbl-vif}
+#| tbl-cap: "Variance inflation factors (VIF) of the candidate predictors of the total fish model, GSA 6 hauls. variable: predictor (sst: sea surface temperature, °C; botTemp: bottom temperature, °C; so: surface salinity, PSU; botso: bottom salinity, PSU; chl: surface chlorophyll-a, mg/m³; MEAN_DEPTH: mean haul depth, m; fishing_hours: GFW AIS apparent trawler fishing hours in the haul's 0.1° cell and year). VIF: 1 / (1 − R²) of the regression of that predictor on all the others; values above 3 indicate problematic collinearity."
 #| code-summary: "Variance inflation factors"
 #| classes: tbl-compact
 
@@ -411,12 +416,14 @@ gam_tab <- tibble(
 ```
 
 ```{r tbl-gam}
+#| tbl-cap: "Comparison of the two total fish GAMs (Gaussian, response log(N/km²)). model: predictor set (gam1: bottom temperature, SST, surface salinity, chlorophyll and fishing hours; gam2: the same without SST). n: number of hauls used. R² (adj.): adjusted R². Deviance explained: share of the null deviance explained by the model. AIC: Akaike information criterion (lower is better)."
 #| echo: false
 #| classes: tbl-compact
 kable(gam_tab)
 ```
 
 ```{r tbl-smooths}
+#| tbl-cap: "Smooth terms of the retained total fish model (gam2). term: smooth function s() of each predictor. edf: effective degrees of freedom (1 = linear; close to 0 = shrunk out of the model by select = TRUE). F: test statistic for the term. p-value: approximate significance of the term."
 #| code-summary: "Smooth terms of the retained model (gam2)"
 #| classes: tbl-compact
 
@@ -426,7 +433,8 @@ kable(tibble(term = rownames(s_tab), edf = round(s_tab$edf, 2),
              `p-value` = format.pval(s_tab$`p-value`, digits = 2, eps = 1e-4)))
 ```
 
-```{r step2-dredge}
+```{r tbl-dredge}
+#| tbl-cap: "Six best models of the all-subsets selection on gam1 (MuMIn::dredge), ranked by AICc. s() columns: '+' if the smooth of that predictor is in the model, blank if not. df: number of estimated parameters. logLik: log-likelihood. AICc: AIC corrected for small samples. delta: AICc difference from the best model. weight: Akaike weight, the relative support for each model among all those fitted."
 #| code-summary: "All-subsets selection on gam1 with MuMIn::dredge"
 #| classes: tbl-compact
 
@@ -556,6 +564,7 @@ gam_diagnostics(gam2)
 ```
 
 ```{r tbl-kcheck}
+#| tbl-cap: "Basis dimension check of the gam2 smooths (mgcv::k.check). term: smooth term. k': maximum effective degrees of freedom allowed by the basis (k − 1). edf: effective degrees of freedom used. k-index: ratio of the residual variance between neighbouring observations to the overall residual variance; values well below 1 suggest the basis is too small. p-value: from a randomisation test of the k-index; small values flag a possibly too small basis."
 #| code-summary: "Basis dimension check (k-index)"
 #| classes: tbl-compact
 
@@ -741,6 +750,7 @@ mb_depth_tab <- mull6 |>
 ### Collinearity
 
 ```{r tbl-mb-vif}
+#| tbl-cap: "Variance inflation factors of the red mullet predictors, all GSA 6 hauls (zeros included). variable: botTemp: bottom temperature, °C; so: surface salinity, PSU; chl: surface chlorophyll-a, mg/m³; depth: haul depth, m; fishing_hours: GFW AIS apparent trawler fishing hours in the haul's 0.1° cell and year (0 when unmatched). VIF: 1 / (1 − R²) of the regression of that predictor on all the others; values above 3 indicate problematic collinearity."
 #| code-summary: "Variance inflation factors for the red mullet predictors"
 #| classes: tbl-compact
 
@@ -780,12 +790,14 @@ mb_tab <- tibble(
 ```
 
 ```{r tbl-mb-gam}
+#| tbl-cap: "Comparison of the two red mullet GAMs (Tweedie, log link, response N/km², zeros included). model: predictor set (bottom temperature, surface salinity, chlorophyll and fishing hours, with or without depth). n: number of hauls used. Deviance explained: share of the null deviance explained by the model. AIC: Akaike information criterion (lower is better). Tweedie p: estimated Tweedie power parameter, between 1 (Poisson-like) and 2 (gamma-like), which sets how the variance grows with the mean."
 #| echo: false
 #| classes: tbl-compact
 kable(mb_tab)
 ```
 
 ```{r tbl-mb-smooths}
+#| tbl-cap: "Smooth terms of the red mullet depth model. term: smooth function s() of each predictor. edf: effective degrees of freedom (1 = linear; close to 0 = shrunk out of the model). F: test statistic for the term. p-value: approximate significance of the term."
 #| code-summary: "Smooth terms of the depth model"
 #| classes: tbl-compact
 
@@ -933,6 +945,7 @@ hauls_g <- mb_g |> count(region, year) |>
 ```
 
 ```{r tbl-grp-hauls}
+#| tbl-cap: "Number of valid MEDITS hauls (validity = V) per year in the group's red mullet datasets. Area: GSA 6 (northern Spain) or GSAs 17-18 (Adriatic). Year columns: number of hauls in that year."
 #| code-summary: "Valid hauls per year in the group's datasets"
 #| classes: tbl-compact
 
@@ -945,7 +958,8 @@ The two datasets hold `r fmt(sum(mb_g$region == "GSA 6"))` and `r fmt(sum(mb_g$r
 
 The prediction files contain, for each 1/24° grid cell (about 16 km²) and year, the columns `est`, `est_non_rf`, `est_rf`, `omega_s`, `epsilon_st` and `dens`. This is the standard prediction output of the R package **sdmTMB**: a log-link model whose linear predictor `est` is the sum of fixed effects (`est_non_rf`), a spatial random field constant over years (`omega_s`) and a spatio-temporal random field that varies by year (`epsilon_st`), with `dens = exp(est)`. All of these identities hold exactly in both files.
 
-```{r grp-reconstruct}
+```{r tbl-grp-reconstruct}
+#| tbl-cap: "Fixed effects recovered from the group's predictions: linear regression of the fixed-effect part of the linear predictor (est_non_rf, log biomass) on depth and bottom temperature, over all grid cells and years. Area: GSA 6 or GSAs 17-18. Intercept: est_non_rf at 0 m depth and 0 °C. Depth (per m): change in log biomass per metre of depth. Bottom temp. (per °C): change in log biomass per °C of bottom temperature. R²: share of the variance of est_non_rf explained (1 = exact)."
 #| code-summary: "Recover the fixed effects from the predictions"
 #| classes: tbl-compact
 
@@ -992,6 +1006,7 @@ grp_res <- bind_rows(lapply(names(grp_m), \(a) {
 ```
 
 ```{r tbl-grp-fit}
+#| tbl-cap: "Summary of the group's sdmTMB models by area. Hauls: hauls used in the fit. Mesh vertices: number of vertices of the SPDE mesh on which the random fields are estimated. Bottom temp. (per SD), Depth (per SD): fixed-effect coefficients on the log scale per standard deviation of the covariate (the model uses scaled covariates), with 95% confidence intervals. Range (km): distance at which the spatial correlation drops to about 0.13. σ ω: standard deviation of the spatial random field (log scale). σ ε: standard deviation of the spatio-temporal random field (log scale). AR(1) ρ: correlation of the spatio-temporal field between consecutive years. Tweedie p: Tweedie power parameter (between 1 and 2). Converged: all sdmTMB sanity() checks passed."
 #| code-summary: "Model summary by area"
 #| classes: tbl-compact
 
@@ -1014,7 +1029,7 @@ kable(grp_fit_tab)
 Both models converge cleanly (positive-definite Hessian, small gradients, all `sanity()` checks passed). Coefficients are on the scale of standardised covariates (per standard deviation), with 95% confidence intervals.
 
 ```{r fig-grp-fit}
-#| fig-cap: "Goodness of fit of the group's models. Left: randomised quantile residuals (MCMC-free 'mle-mvn' residuals) against the normal distribution; points on the line indicate a well-specified observation model. Right: observed against fitted biomass at each haul (log scale), with the 1:1 line."
+#| fig-cap: "Goodness of fit of the group's models. Left: randomised quantile residuals (sdmTMB 'mle-mvn' residuals, using one draw of the random effects) against the normal distribution; points on the line indicate a well-specified observation model. Right: observed against fitted biomass at each haul (log scale), with the 1:1 line."
 #| fig-width: 11
 #| fig-height: 4.6
 
@@ -1071,6 +1086,7 @@ ggplot(temp_eff, aes(sbt, rel, colour = region, fill = region)) +
 ```
 
 ```{r tbl-grp-temp}
+#| tbl-cap: "Effect of bottom temperature on red mullet biomass in the group's models. Area: GSA 6 or GSAs 17-18. Change in biomass per +1 °C: percentage change in predicted biomass for a 1 °C increase in bottom temperature at constant depth, with 95% confidence interval (the per-SD coefficient divided by the standard deviation of bottom temperature across the hauls). Sampled bottom temperature (°C): range of bottom temperature across the hauls of each area."
 #| code-summary: "Bottom temperature effect per °C"
 #| classes: tbl-compact
 
@@ -1205,6 +1221,7 @@ hsi_map("GSA 6", gsa6_view) / hsi_map("GSAs 17-18", adr_view) +
 ```
 
 ```{r tbl-grp-hsi}
+#| tbl-cap: "Mean habitat suitability index (HSI) by area and year. Area: GSA 6 or GSAs 17-18. Year columns: average over all prediction grid cells of the HSI, the fixed-effect predictions (depth and bottom temperature) rescaled to 0-1 across all years within each area (0 = least suitable, 1 = most suitable)."
 #| code-summary: "Mean habitat suitability by year"
 #| classes: tbl-compact
 
@@ -1272,6 +1289,7 @@ chg_map <- function(var, reg, view, lim, name) {
 ```
 
 ```{r tbl-grp-perc}
+#| tbl-cap: "Change in habitat suitability (HSI, 0-1) between 2014 and 2021 by area. Cells: number of prediction grid cells. Median change (%): median per-cell percentage change, (HSI 2021 − HSI 2014) / HSI 2014 × 100. Cells with lower HSI: share of cells where the HSI fell. Median difference (HSI points): median per-cell difference, HSI 2021 − HSI 2014, on the 0-1 scale. Largest drop (HSI points): most negative per-cell difference."
 #| code-summary: "Summary of the change by area"
 #| classes: tbl-compact
 
@@ -1360,7 +1378,8 @@ mhw.year <- expand.grid(grid.id = unique(pts$grid.id), YEAR = 2012:2021) |>
 write.table(mhw.year, "outputs/MHW_gsa6.csv", sep = ";", row.names = FALSE)
 ```
 
-```{r step3-load}
+```{r tbl-mhw}
+#| tbl-cap: "Summer marine heatwave (MHW) metrics by year, averaged over the GSA 6 grid points (events peaking in June-August). Year. Events: mean number of MHW events per grid point. MHW days: mean number of days under MHW conditions. Mean intensity (°C): mean SST anomaly during events, relative to the seasonal climatology. Cumulative intensity (°C days): sum of the daily anomalies over all events. Used as: role of the year in the fleet comparison (MHW, non-MHW or not used)."
 #| code-summary: "Load annual MHW metrics and summarise across GSA 6"
 #| classes: tbl-compact
 
@@ -1473,7 +1492,8 @@ write.csv(fishing.change, "outputs/fishing_change_MHW.csv", row.names = FALSE)
 include_graphics("outputs/Fishing_effort_MHW_comparison.png")
 ```
 
-```{r step3-fleet-summary}
+```{r tbl-fleet}
+#| tbl-cap: "Summer trawler effort in GSA 6 in MHW years (2017, 2018, 2020) and non-MHW years (2013, 2014, 2016), from daily GFW AIS apparent fishing hours on a 0.01° grid. Period: MHW or non-MHW years. Cells fished: number of 0.01° cells with trawler effort in at least one year of the period. Total mean hours: sum over cells of the mean annual summer fishing hours. Median hours per cell: median of the per-cell mean annual summer fishing hours."
 #| code-summary: "Summarise the saved spatial comparison"
 #| classes: tbl-compact
 
@@ -1541,6 +1561,7 @@ ggplot(cfvi_long) + land +
 ```
 
 ```{r tbl-cfvi}
+#| tbl-cap: "Distribution of the climate-fisheries vulnerability index (CFVI) components across GSA 6 grid cells. component: exposure (2021 cumulative MHW intensity), sensitivity (decline in predicted total fish abundance, 2012-2021), pressure (2021 trawler fishing hours) and CFVI (the mean of the three), each min-max scaled to 0-1. median: median score across cells. share zero: share of cells scoring exactly 0."
 #| dependson: "step4-cfvi"
 #| code-summary: "Distribution of the index components"
 #| classes: tbl-compact
