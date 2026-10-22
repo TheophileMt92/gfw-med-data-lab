@@ -1325,6 +1325,124 @@ In GSA 6, correlations are mostly negative, with positive patches on parts of th
 
 > **Still to share:** the script behind the correlation map (variables, window, method).
 
+### 2c.10 Marine heatwaves, biomass trends and trawling trends
+
+The group's last step relates the red mullet model to marine heatwaves (MHWs) and to trawling. For each grid cell of the predictions, it combines three layers: summer heatwave exposure, the 2014-2021 linear trend in predicted biomass, and the 2014-2021 linear trend in trawling hours. The trends were computed by the group (`df_slope_6.rds`, `df_slope.rds`); they match exactly a per-cell linear regression of the predicted biomass (`pred_*.rds`) and of the yearly trawling hours (`eff_grid_*.rds`) on year.
+
+The heatwave metrics are recomputed here for both areas on the prediction grid, with the method of Section 3 (Hobday et al. 2016, `heatwaveR`, summer events peaking in June-August). The group's two scripts are included in the repository with relative paths (`scripts/5_MHW_grids.R`, adapted from `mhw_GSA6.R`; `scripts/6_MHW_trend_maps.R`, adapted from `Plot_MHW_BiologicalTrend_Effor_ttrend.R`).
+
+```{r grp-mhw-run}
+#| eval: false
+#| code-summary: "Compute heatwave metrics on both prediction grids (not evaluated: needs the daily SST NetCDF)"
+
+source("scripts/5_MHW_grids.R")   # writes outputs/MHW_grid_6.csv and outputs/MHW_grid_1718.csv
+```
+
+```{r grp-mhw-load}
+#| code-summary: "Load the heatwave metrics and compare with the group's Adriatic file"
+#| cache: false
+
+mhw_g <- bind_rows(read.csv("outputs/MHW_grid_6.csv") |> mutate(region = "GSA 6"),
+                   read.csv("outputs/MHW_grid_1718.csv") |> mutate(region = "GSAs 17-18"))
+
+# Check against the group's Adriatic metrics (MHW_gsa17.csv), cell by cell
+mhw_chk <- read.csv("outputs/MHW_grid_1718.csv") |>
+  mutate(X = round(X, 4), Y = round(Y, 4)) |>
+  inner_join(read.csv("data/group/MHW_gsa17.csv", sep = ";") |>
+               transmute(X = round(X, 4), Y = round(Y, 4), YEAR, group_cum = mhw_cum_intensity),
+             by = c("X", "Y", "YEAR"))
+mhw_same <- with(filter(mhw_chk, sst_available), mean(abs(mhw_cum_intensity - group_cum) < 1e-6))
+mhw_nosst <- with(filter(mhw_chk, !sst_available), sum(YEAR == 2014))
+
+mhw_year <- mhw_g |>
+  group_by(region, YEAR) |>
+  summarise(cum = mean(mhw_cum_intensity, na.rm = TRUE), days = mean(mhw_days, na.rm = TRUE),
+            .groups = "drop")
+```
+
+For the Adriatic, the recomputed metrics are identical to the group's file (`MHW_gsa17.csv`) in `r percent(mhw_same, 0.1)` of cell-years with SST data. The difference is in `r mhw_nosst` cells (`r percent(mhw_nosst / n_distinct(mhw_chk$X, mhw_chk$Y), 1)` of the grid), almost all north of 45.0°N, where the SST product has no data: the group's file gives them zero heatwaves, while here they are left missing.
+
+```{r fig-grp-mhw-years}
+#| fig-cap: "Mean summer cumulative heatwave intensity per year across each area's prediction grid (°C days). Points mark the three strongest and three weakest summers from 2015 onward, after the AIS ramp-up, proposed as contrasting years for each area."
+#| fig-width: 9
+#| fig-height: 4.2
+
+mhw_pick <- mhw_year |>
+  filter(YEAR >= 2015) |>
+  group_by(region) |>
+  mutate(rank = rank(-cum, ties.method = "first"),
+         class = case_when(rank <= 3 ~ "Strong MHW summer", rank >= n() - 2 ~ "Weak MHW summer")) |>
+  ungroup() |> filter(!is.na(class))
+
+ggplot(mhw_year, aes(YEAR, cum, colour = region)) +
+  annotate("rect", xmin = 2011.6, xmax = 2014.5, ymin = -Inf, ymax = Inf, fill = "grey92") +
+  annotate("text", x = 2013, y = max(mhw_year$cum), label = "AIS ramp-up", colour = "grey45", size = 3.2) +
+  geom_line(linewidth = 0.9) +
+  geom_point(data = mhw_pick, aes(shape = class), size = 3) +
+  scale_colour_manual(values = grp_cols, name = NULL) +
+  scale_shape_manual(values = c(`Strong MHW summer` = 16, `Weak MHW summer` = 1), name = NULL) +
+  scale_x_continuous(breaks = 2012:2021) +
+  labs(x = NULL, y = "Cumulative intensity (°C days)") + theme_ocean()
+```
+
+```{r tbl-grp-mhw-years}
+#| tbl-cap: "Proposed contrasting summers for each area, from 2015 onward. Area: GSA 6 or GSAs 17-18. Strong MHW summers, Weak MHW summers: the three years with the highest and lowest mean summer cumulative heatwave intensity across the area's prediction grid (in brackets, °C days). The GSA 6 comparison in Section 3.2 uses 2017, 2018, 2020 against 2013, 2014, 2016."
+#| classes: tbl-compact
+
+kable(mhw_pick |>
+        mutate(lab = sprintf("%d (%.1f)", YEAR, cum)) |>
+        arrange(region, class, YEAR) |>
+        group_by(Area = region, class) |>
+        summarise(years = paste(lab, collapse = ", "), .groups = "drop") |>
+        pivot_wider(names_from = class, values_from = years))
+```
+
+The two areas do not share their heatwave years. In GSA 6, the strongest summers are `r paste(sort(mhw_pick$YEAR[mhw_pick$region == "GSA 6" & mhw_pick$class == "Strong MHW summer"]), collapse = ", ")`; in the Adriatic, `r paste(sort(mhw_pick$YEAR[mhw_pick$region == "GSAs 17-18" & mhw_pick$class == "Strong MHW summer"]), collapse = ", ")`, while 2020, a strong year in GSA 6, had almost no heatwave in the Adriatic. Any comparison between heatwave and non-heatwave years therefore needs area-specific years.
+
+```{r grp-trends}
+#| code-summary: "Heatwave, biomass trend and trawling trend maps (scripts/6_MHW_trend_maps.R)"
+#| cache: false
+
+source("scripts/6_MHW_trend_maps.R")
+trend_g <- bind_rows(trend_data("6") |> mutate(region = "GSA 6"),
+                     trend_data("1718") |> mutate(region = "GSAs 17-18"))
+```
+
+```{r fig-grp-trends-6}
+#| fig-cap: "GSA 6. A: mean summer cumulative heatwave intensity, 2014-2021 (°C days per summer). B: linear trend in predicted red mullet biomass, 2014-2021, as a percentage of the cell's mean biomass per year. C: linear trend in trawling hours, 2014-2021, as a percentage of the cell's mean hours per year (grey: less than 1 hour per year on average). Trend colour scales are capped at ±15% per year."
+#| fig-width: 10
+#| fig-height: 5.6
+
+trend_maps("6", filter(trend_g, region == "GSA 6"))
+```
+
+```{r fig-grp-trends-1718}
+#| fig-cap: "GSAs 17-18 (Adriatic). Panels as in the GSA 6 figure. Grey in A: no SST data (north of 45.0°N)."
+#| fig-width: 12
+#| fig-height: 5.2
+
+trend_maps("1718", filter(trend_g, region == "GSAs 17-18"))
+```
+
+```{r tbl-grp-trends}
+#| tbl-cap: "Summary of the heatwave and trend layers by area. Area: GSA 6 or GSAs 17-18. MHW intensity (°C days per summer): median over cells of the 2014-2021 mean summer cumulative heatwave intensity. Biomass trend (%/yr), Trawling trend (%/yr): median over cells of the linear trend, as a percentage of the cell's mean per year. Cells with biomass decline, Cells with trawling decline: share of cells with a negative trend. r (MHW, biomass trend), r (MHW, trawling trend): Spearman correlation across cells between heatwave intensity and each trend."
+#| classes: tbl-compact
+
+kable(trend_g |>
+        group_by(Area = region) |>
+        summarise(`MHW intensity (°C days per summer)` = round(median(mhw_cum, na.rm = TRUE), 1),
+                  `Biomass trend (%/yr)` = round(median(trend_bio), 1),
+                  `Cells with biomass decline` = percent(mean(trend_bio < 0), 1),
+                  `Trawling trend (%/yr)` = round(median(trend_eff, na.rm = TRUE), 1),
+                  `Cells with trawling decline` = percent(mean(trend_eff < 0, na.rm = TRUE), 1),
+                  `r (MHW, biomass trend)` = round(cor(mhw_cum, trend_bio, method = "spearman", use = "complete.obs"), 2),
+                  `r (MHW, trawling trend)` = round(cor(mhw_cum, trend_eff, method = "spearman", use = "complete.obs"), 2)))
+```
+
+Trends are shown relative to each cell's mean, so that biomass (kg/km²) and effort (hours) are on the same scale and one threshold means the same for both. In GSA 6, predicted biomass rises slightly over most of the shelf, while trawling trends form a fine mosaic of increases and decreases. In the Adriatic, biomass trends follow the broad patches of the spatio-temporal field, and heatwave exposure is highest along the Italian coast and in the south.
+
+> **Discussion points.** (1) The heatwave map in the group's script grouped the data by year and cell, so the ten yearly maps were drawn on top of each other and only the last year was visible; here the panel shows the mean summer cumulative intensity over 2014-2021, the period of the trends. (2) The group classed trends as decreasing, stable or increasing with a threshold of ±0.1 in absolute units (kg/km² per year for biomass, hours per year for effort), which leaves only about 3% of cells "stable" in the Adriatic; relative trends, as here, or classes based on significance are more meaningful. Significance of the slopes is to be shared by the group and can then be used to grey out non-significant trends. (3) The biomass trends come from model predictions that include the spatio-temporal field, so in the Adriatic part of the pattern reflects year-to-year noise in that field. (4) The climatology uses 2010-2021, shorter than the 30-year baseline recommended by Hobday et al. (2016).
+
 ## 3. Marine heatwaves and fleet behaviour
 
 ### 3.1 Detecting marine heatwaves
