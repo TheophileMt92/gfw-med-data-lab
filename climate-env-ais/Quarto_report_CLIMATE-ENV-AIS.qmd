@@ -1443,6 +1443,88 @@ Trends are shown relative to each cell's mean, so that biomass (kg/km²) and eff
 
 > **Discussion points.** (1) The heatwave map in the group's script grouped the data by year and cell, so the ten yearly maps were drawn on top of each other and only the last year was visible; here the panel shows the mean summer cumulative intensity over 2014-2021, the period of the trends. (2) The group classed trends as decreasing, stable or increasing with a threshold of ±0.1 in absolute units (kg/km² per year for biomass, hours per year for effort), which leaves only about 3% of cells "stable" in the Adriatic; relative trends, as here, or classes based on significance are more meaningful. Significance of the slopes is to be shared by the group and can then be used to grey out non-significant trends. (3) The biomass trends come from model predictions that include the spatio-temporal field, so in the Adriatic part of the pattern reflects year-to-year noise in that field. (4) The climatology uses 2010-2021, shorter than the 30-year baseline recommended by Hobday et al. (2016).
 
+### 2c.11 Trawling in strong and weak heatwave summers
+
+Section 3.2 compares trawling in GSA 6 between heatwave summers (2017, 2018, 2020) and quieter ones (2013, 2014, 2016), and the group had started to redo this on the new grid (`mhw_GSA6.R`). Here the comparison is made for both areas with each area's own contrasting summers (@tbl-grp-mhw-years), all from 2015 onward so that the AIS ramp-up does not enter the contrast. Daily trawler effort for June-August is downloaded at 0.01° with `gfwr`, and each summer is summarised by fleet-level metrics (`scripts/7_fleet_MHW.R`).
+
+```{r grp-fleet-run}
+#| eval: false
+#| code-summary: "Download summer trawler effort and summarise it (not evaluated: calls the GFW API)"
+
+source("scripts/7_fleet_MHW.R")   # writes outputs/fleet_MHW_*.csv
+```
+
+```{r grp-fleet-load}
+#| code-summary: "Load the fleet summaries"
+#| cache: false
+
+fleet_s <- read.csv("outputs/fleet_MHW_summary.csv") |>
+  mutate(class = factor(class, c("weak", "strong"), c("Weak MHW summer", "Strong MHW summer")))
+fleet_c <- read.csv("outputs/fleet_MHW_cells.csv")
+```
+
+```{r fig-grp-fleet}
+#| fig-cap: "Fleet metrics for each summer (June-August), trawlers only, as the percentage difference from the area's mean over the six summers. Filled points: strong heatwave summers; open points: weak ones; bars: mean of each group. Shelf share: share of trawling hours at depths of 200 m or less, where red mullet lives. Absolute values are in the table below."
+#| fig-width: 11
+#| fig-height: 4.6
+
+fleet_long <- fleet_s |>
+  transmute(region, year, class,
+            `Total hours (thousands)` = total_hours / 1000, `Active vessels` = vessels,
+            `Hours per vessel` = hours_per_vessel, `Mean depth (m)` = mean_depth_m,
+            `Mean distance to coast (km)` = mean_dist_coast_km, `Shelf share (%)` = 100 * shelf_share) |>
+  pivot_longer(-c(region, year, class)) |>
+  mutate(name = factor(name, unique(name))) |>
+  group_by(region, name) |> mutate(rel = 100 * (value / mean(value) - 1)) |> ungroup()
+fleet_mean <- fleet_long |> group_by(region, class, name) |> summarise(rel = mean(rel), .groups = "drop")
+dodge <- position_dodge(width = 0.6)
+
+ggplot(fleet_long, aes(region, rel, colour = region, group = class)) +
+  geom_hline(yintercept = 0, colour = "grey70") +
+  geom_crossbar(data = fleet_mean, aes(ymin = rel, ymax = rel), width = 0.25, linewidth = 0.4, position = dodge) +
+  geom_point(aes(shape = class), size = 2.3, position = dodge) +
+  scale_shape_manual(values = c(`Weak MHW summer` = 1, `Strong MHW summer` = 16), name = NULL) +
+  scale_colour_manual(values = grp_cols, guide = "none") +
+  scale_x_discrete(labels = c(`GSA 6` = "GSA 6", `GSAs 17-18` = "17-18")) +
+  facet_wrap(~name, nrow = 1, labeller = label_wrap_gen(14)) +
+  labs(x = NULL, y = "Difference from the six-summer mean (%)") + theme_ocean(10)
+```
+
+```{r tbl-grp-fleet}
+#| tbl-cap: "Mean fleet metrics in strong and weak heatwave summers, by area (three summers each). Area: GSA 6 or GSAs 17-18. Metric: Total hours, trawling hours in June-August; Active vessels, distinct trawlers with fishing activity; Hours per vessel, total hours divided by active vessels; Mean depth (m) and Mean distance to coast (km), averages over fishing locations weighted by hours; Shelf share, share of hours at 200 m depth or less. Weak, Strong: mean over the three summers of each class. Difference: Strong relative to Weak. Range of years: smallest and largest value across all six summers."
+#| classes: tbl-compact
+
+fleet_tab2 <- fleet_long |>
+  group_by(Area = region, Metric = name) |>
+  summarise(Weak = mean(value[class == "Weak MHW summer"]), Strong = mean(value[class == "Strong MHW summer"]),
+            lo = min(value), hi = max(value), .groups = "drop") |>
+  mutate(Difference = percent(Strong / Weak - 1, 0.1, style_positive = "plus"),
+         `Range of years` = sprintf("%s-%s", signif(lo, 3), signif(hi, 3)),
+         across(c(Weak, Strong), \(x) signif(x, 3))) |>
+  select(-lo, -hi)
+kable(fleet_tab2)
+```
+
+```{r fig-grp-fleet-map}
+#| fig-cap: "Change in trawling between strong and weak heatwave summers, on a 0.05° grid: log ratio of the mean summer trawling hours, log((strong + 1) / (weak + 1)). Red: more trawling in strong heatwave summers; blue: less. Cells fished in any of the six summers are shown, with summers without fishing counted as 0."
+#| fig-width: 11
+#| fig-height: 5.2
+
+lr_scale <- scale_fill_gradient2(low = pal_ocean[["mid"]], mid = "white", high = pal_ocean[["alert"]], midpoint = 0,
+                                 limits = c(-2, 2), oob = squish, name = "log(strong / weak)")
+lr_map <- function(reg, view) {
+  ggplot() + geom_tile(data = filter(fleet_c, region == reg), aes(Lon, Lat, fill = log_ratio),
+                       width = 0.05, height = 0.05) +
+    land + lr_scale + view + labs(title = reg) + theme_map
+}
+(lr_map("GSA 6", gsa6_view) | lr_map("GSAs 17-18", adr_view)) +
+  plot_layout(guides = "collect") & theme(legend.position = "bottom") & bar_wide
+```
+
+There is no consistent difference in fleet behaviour between strong and weak heatwave summers in either area. Total trawling hours differ by `r fleet_tab2$Difference[fleet_tab2$Area == "GSA 6" & fleet_tab2$Metric == "Total hours (thousands)"]` in GSA 6 and `r fleet_tab2$Difference[fleet_tab2$Area == "GSAs 17-18" & fleet_tab2$Metric == "Total hours (thousands)"]` in the Adriatic, well within the spread between individual summers, and the number of vessels, the depth and distance to coast of fishing and the share of effort on the shelf barely change. The cell map shows a mosaic of local increases and decreases rather than a coherent shift. This contrasts with Section 3.2, where effort appeared higher in heatwave years: with the early, low-AIS years removed from the contrast, that difference disappears.
+
+> **Discussion points.** (1) With three summers per group, year-to-year differences that have nothing to do with heatwaves (fuel prices, closures, COVID-19 in 2020, a strong heatwave summer in GSA 6 and a weak one in the Adriatic) weigh as much as the heatwave contrast. (2) Summer-level metrics may hide short-term responses: heatwaves last days to weeks. A stronger design uses the daily data already downloaded, comparing effort on heatwave days and on other days of the same summers in the same cells. (3) Across all summers from 2015 to 2021, a regression of each fleet metric on the area's heatwave intensity would use all years instead of six. (4) Management measures that changed over the period, such as spatial closures, should be checked before reading local patches in the map as heatwave responses.
+
 ## 3. Marine heatwaves and fleet behaviour
 
 ### 3.1 Detecting marine heatwaves
