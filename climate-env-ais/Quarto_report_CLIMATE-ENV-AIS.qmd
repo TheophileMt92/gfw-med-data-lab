@@ -51,6 +51,7 @@ library(mgcv)
 library(MuMIn)
 library(knitr)
 library(scales)
+library(sdmTMB)
 
 pal_ocean <- c(deep = "#062d4a", mid = "#0d4f7a", surface = "#1a7fa8",
                light = "#4eb8d4", foam = "#c8eaf4", accent = "#12726B",
