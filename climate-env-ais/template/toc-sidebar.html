@@ -49,6 +49,33 @@
     background: rgba(26, 127, 168, 0.06);
   }
 
+  /* Collapsible groups: Contents, Figures, Tables */
+  #TOC details.toc-group { margin: 0 0 0.5rem; }
+  #TOC details.toc-group > summary {
+    list-style: none;
+    cursor: pointer;
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    padding: 0.3rem 0.7rem;
+    user-select: none;
+  }
+  #TOC details.toc-group > summary::-webkit-details-marker { display: none; }
+  #TOC details.toc-group > summary::before {
+    content: "▸";
+    display: inline-block;
+    width: 1em;
+    transition: transform 0.15s ease;
+  }
+  #TOC details.toc-group[open] > summary::before { transform: rotate(90deg); }
+  #TOC details.toc-group > summary:hover { color: var(--accent); }
+  #TOC details.toc-group > summary .toc-count { font-weight: 400; letter-spacing: 0; text-transform: none; opacity: 0.75; }
+  #TOC ul.toc-floats a { font-size: 0.8rem; padding-top: 0.15rem; padding-bottom: 0.15rem; }
+  #TOC ul.toc-floats a b { color: var(--ocean-deep); font-weight: 600; }
+
   @media (max-width: 1199px) {
     #TOC ul ul { display: none; }
   }
@@ -107,6 +134,68 @@
 
   var wide = window.matchMedia('(min-width: 1200px)');
   var links = Array.prototype.slice.call(toc.querySelectorAll('a[href^="#"]'));
+
+  // Collapsible groups: Contents (open), then lists of figures and tables (closed)
+  function store(key, val) { try { localStorage.setItem(key, val); } catch (e) {} }
+  function stored(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
+  function group(key, label, count, openByDefault) {
+    var d = document.createElement('details');
+    d.className = 'toc-group';
+    var s = stored('toc-' + key);
+    d.open = s === null ? openByDefault : s === '1';
+    var sum = document.createElement('summary');
+    sum.textContent = label;
+    if (count !== null) {
+      var c = document.createElement('span');
+      c.className = 'toc-count';
+      c.textContent = ' (' + count + ')';
+      sum.appendChild(c);
+    }
+    d.appendChild(sum);
+    d.addEventListener('toggle', function () { store('toc-' + key, d.open ? '1' : '0'); });
+    return d;
+  }
+  var tocTitle = document.getElementById('toc-title');
+  var tocList = toc.querySelector(':scope > ul');
+  if (tocList) {
+    var gContents = group('contents', tocTitle ? tocTitle.textContent : 'Contents', null, true);
+    if (tocTitle) tocTitle.style.display = 'none';
+    toc.insertBefore(gContents, tocList);
+    gContents.appendChild(tocList);
+  }
+  function floatList(prefix, key, label) {
+    var items = [];
+    document.querySelectorAll('#report-main [id^="' + prefix + '"].quarto-float').forEach(function (el) {
+      var cap = el.querySelector(':scope > figure > figcaption.quarto-float-caption');
+      if (!cap) return;
+      var text = cap.textContent.replace(/\s+/g, ' ').trim();
+      var m = text.match(/^((?:Figure|Table)\s*\d+)\s*:\s*(.*)$/);
+      if (!m) return;
+      var first = m[2].split(/\.\s/)[0].replace(/\.$/, '');
+      if (first.length > 90) first = first.slice(0, 87).replace(/\s\S*$/, '') + '…';
+      items.push({ id: el.id, num: m[1].replace('Figure', 'Fig.'), text: first, full: text });
+    });
+    if (!items.length) return;
+    var g = group(key, label, items.length, false);
+    var ul = document.createElement('ul');
+    ul.className = 'toc-floats';
+    items.forEach(function (it) {
+      var li = document.createElement('li');
+      var a = document.createElement('a');
+      a.href = '#' + it.id;
+      a.title = it.full;
+      var b = document.createElement('b');
+      b.textContent = it.num;
+      a.appendChild(b);
+      a.appendChild(document.createTextNode(' ' + it.text));
+      li.appendChild(a);
+      ul.appendChild(li);
+    });
+    g.appendChild(ul);
+    toc.appendChild(g);
+  }
+  floatList('fig-', 'figures', 'Figures');
+  floatList('tbl-', 'tables', 'Tables');
   var targets = links.map(function (a) {
     return document.getElementById(decodeURIComponent(a.getAttribute('href').slice(1)));
   });
