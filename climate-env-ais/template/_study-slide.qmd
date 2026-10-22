@@ -1,0 +1,53 @@
+## The study in one picture
+
+```{=html}
+<svg viewBox="0 0 1400 600" width="100%" style="max-height: 640px; margin-top: 0.4em; font-family: 'Source Sans 3', sans-serif;">
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#1a7fa8"/>
+    </marker>
+    <marker id="ahs" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#a87a1c"/>
+    </marker>
+  </defs>
+
+  <!-- Climate -->
+  <rect x="20" y="30" width="400" height="215" rx="18" fill="#fdecea" stroke="#c0392b" stroke-width="3"/>
+  <text x="220" y="78" text-anchor="middle" font-size="34" font-weight="700" fill="#062d4a">Climate &amp; environment</text>
+  <text x="220" y="122" text-anchor="middle" font-size="25" fill="#3a4a5a">Bottom temperature, depth</text>
+  <text x="220" y="156" text-anchor="middle" font-size="25" fill="#3a4a5a">Marine heatwaves (sea surface)</text>
+  <text x="220" y="210" text-anchor="middle" font-size="22" font-style="italic" fill="#6b7b8b">Copernicus Marine</text>
+
+  <!-- Red mullet -->
+  <rect x="980" y="30" width="400" height="215" rx="18" fill="#eef6fa" stroke="#1a7fa8" stroke-width="3"/>
+  <text x="1180" y="78" text-anchor="middle" font-size="34" font-weight="700" fill="#062d4a">Red mullet</text>
+  <text x="1180" y="122" text-anchor="middle" font-size="25" fill="#3a4a5a">Biomass in bottom-trawl surveys</text>
+  <text x="1180" y="156" text-anchor="middle" font-size="25" fill="#3a4a5a">Species distribution models</text>
+  <text x="1180" y="210" text-anchor="middle" font-size="22" font-style="italic" fill="#6b7b8b">MEDITS survey</text>
+
+  <!-- Trawling -->
+  <rect x="500" y="370" width="400" height="200" rx="18" fill="#fdf6e8" stroke="#e4b363" stroke-width="3"/>
+  <text x="700" y="418" text-anchor="middle" font-size="34" font-weight="700" fill="#062d4a">Trawling</text>
+  <text x="700" y="462" text-anchor="middle" font-size="25" fill="#3a4a5a">Fishing hours of trawlers,</text>
+  <text x="700" y="496" text-anchor="middle" font-size="25" fill="#3a4a5a">where and how much</text>
+  <text x="700" y="545" text-anchor="middle" font-size="22" font-style="italic" fill="#6b7b8b">Global Fishing Watch (AIS)</text>
+
+  <!-- Q1, Q2: climate to red mullet -->
+  <line x1="425" y1="110" x2="972" y2="110" stroke="#1a7fa8" stroke-width="4" marker-end="url(#ah)"/>
+  <text x="700" y="92" text-anchor="middle" font-size="25" font-weight="700" fill="#1a7fa8">Q1 · What drives where red mullet lives?</text>
+  <line x1="425" y1="175" x2="972" y2="175" stroke="#1a7fa8" stroke-width="4" marker-end="url(#ah)"/>
+  <text x="700" y="212" text-anchor="middle" font-size="25" font-weight="700" fill="#1a7fa8">Q2 · Do heatwaves change its biomass?</text>
+
+  <!-- Q3: climate to trawling -->
+  <line x1="260" y1="250" x2="495" y2="420" stroke="#a87a1c" stroke-width="4" marker-end="url(#ahs)"/>
+  <text x="250" y="330" text-anchor="middle" font-size="25" font-weight="700" fill="#a87a1c">Q3 · Do trawlers</text>
+  <text x="250" y="362" text-anchor="middle" font-size="25" font-weight="700" fill="#a87a1c">respond to heatwaves?</text>
+
+  <!-- overlap: trawling and red mullet -->
+  <line x1="905" y1="420" x2="1140" y2="250" stroke="#6b7b8b" stroke-width="3" stroke-dasharray="10 8" marker-end="url(#ah)"/>
+  <text x="1150" y="330" text-anchor="middle" font-size="23" fill="#6b7b8b">Where do trawling</text>
+  <text x="1150" y="360" text-anchor="middle" font-size="23" fill="#6b7b8b">and red mullet overlap?</text>
+</svg>
+```
+
+[Northern Spain (GSA 6) and the Adriatic (GSAs 17-18), 2012-2021. Red mullet (*Mullus barbatus*) is a key target of Mediterranean bottom trawlers.]{.small .muted}

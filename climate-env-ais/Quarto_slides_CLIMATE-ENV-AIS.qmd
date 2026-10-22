@@ -48,6 +48,8 @@ mhw_zero <- names(k$mhw_cum)[k$mhw_cum == 0]
 
 {{< include template/_workflow-slide.qmd >}}
 
+{{< include template/_study-slide.qmd >}}
+
 ## Data
 
 :::: {.columns}
@@ -62,7 +64,7 @@ haul_map(hauls_map)
 - **MEDITS** bottom-trawl survey, 2012-2021: abundance per species and haul
 - **Copernicus Marine** reanalyses at each haul: bottom temperature, salinity, chlorophyll
 - **GFW AIS** apparent fishing hours, trawlers, yearly 0.1° cells, pulled with `gfwr`
-- Focus on **GSA 6** (Spanish Mediterranean, Murcia to the French border)
+- Focus on **GSA 6** (Spanish Mediterranean) and the **Adriatic** (GSAs 17-18)
 
 <span class="small muted">`r num(k$n_hauls_all)` hauls in `r k$n_gsa` GSAs; `r num(k$n_hauls_gsa6)` in GSA 6 (gold). Hover over a haul for its details; scroll to zoom.</span>
 :::
@@ -87,6 +89,136 @@ The 2012-2014 rise reflects **AIS adoption**, not more fishing. Comparisons span
 :::
 :::
 ::::
+
+## Q1 · What drives where red mullet lives?
+
+:::: {.columns}
+::: {.column width="36%"}
+::: {.qbox}
+**Question**<br>How do depth and bottom temperature shape red mullet biomass in the two areas?
+:::
+::: {.qbox}
+**Approach**<br>Spatio-temporal species distribution model (sdmTMB) of survey biomass, 2014-2021, in each area
+:::
+::: {.rbox}
+**Result**<br>Biomass falls steeply with depth and rises with bottom temperature: **`r scales::percent(k$grp_temp$per_c[2], 1, style_positive = "plus")` per °C** in the Adriatic. In GSA 6 the temperature effect is uncertain, as surveys there cover a narrow range of temperatures.
+:::
+:::
+::: {.column width="64%"}
+![](figures/fig-grp-temp-1.png){width="100%"}
+
+[Predicted biomass relative to each area's mean bottom temperature, at constant depth, with 95% confidence bands.]{.small .muted}
+:::
+::::
+
+## Q2 · Do heatwaves change red mullet biomass?
+
+:::: {.columns}
+::: {.column width="36%"}
+::: {.qbox}
+**Question**<br>Is red mullet biomass lower in summers with strong marine heatwaves?
+:::
+::: {.qbox}
+**Approach**<br>Annual biomass index from the model, compared with summer heatwave intensity, 2014-2021
+:::
+::: {.rbox}
+**Result**<br>In the Adriatic, biomass drops in the two strongest heatwave summers (2015, 2018) and recovers the next year; in GSA 6 it does not (ρ = `r round(subset(k$grp_annual_cor, region == "GSA 6")$same, 2)`). A hypothesis to test, not yet a result.
+:::
+:::
+::: {.column width="64%"}
+![](figures/fig-grp-annual-1.png){width="100%"}
+
+[Standardised annual series. Shaded: the three strongest heatwave summers of each area.]{.small .muted}
+:::
+::::
+
+## Q3 · Do trawlers respond to heatwaves?
+
+:::: {.columns}
+::: {.column width="36%"}
+::: {.qbox}
+**Question**<br>Do trawlers fish more, less or elsewhere in strong heatwave summers?
+:::
+::: {.qbox}
+**Approach**<br>Daily trawler effort (GFW) in 3 strong vs 3 weak heatwave summers since 2015, in each area
+:::
+::: {.rbox}
+**Result**<br>No change: same total effort (`r subset(k$grp_fleet_tab, Area == "GSA 6" & Metric == "Total hours (thousands)")$Difference` in GSA 6, `r subset(k$grp_fleet_tab, Area == "GSAs 17-18" & Metric == "Total hours (thousands)")$Difference` in the Adriatic) and same grounds. An earlier apparent increase came from AIS coverage growing in 2012-2014.
+:::
+:::
+::: {.column width="64%"}
+![](figures/fig-grp-core-1.png){width="100%"}
+
+[Core fishing grounds (80% of hours): blue-grey in both types of summer; red strong only; dark blue weak only.]{.small .muted}
+:::
+::::
+
+## Take-home {.takehome}
+
+:::: {.columns}
+::: {.column width="50%"}
+::: {.rbox}
+**Main results**
+
+- Depth and bottom temperature structure red mullet biomass; warmer bottoms hold more fish within the sampled range
+- Adriatic biomass dips in strong heatwave summers; GSA 6 does not
+- Trawlers do not change effort or grounds in heatwave summers
+:::
+::: {.qbox}
+**Limits**
+
+- Eight years per area; heatwaves defined from sea surface temperature
+- AIS coverage grew until 2015: trends before then are partly artefacts
+- Model predictions, not observations, underlie the trends
+:::
+:::
+::: {.column width="50%"}
+::: {.caveat}
+**Discussion points**
+
+- Heatwaves may change red mullet **availability to the survey** rather than its abundance
+- Are bottom temperature anomalies a better heat signal than surface heatwaves?
+:::
+::: {.qbox}
+**Ways forward**
+
+- Heatwave intensity as a covariate of the model, fitted to the hauls
+- Effort on heatwave days vs other days, from daily AIS data
+- Uncertainty of the biomass index; extend to more areas
+:::
+:::
+::::
+
+## Slides, report and code {.center}
+
+:::: {.columns}
+::: {.column width="25%"}
+**These slides**
+
+[theophilemt92.github.io/gfw-med-data-lab/<br>climate-env-ais/Quarto_slides_CLIMATE-ENV-AIS.html](https://theophilemt92.github.io/gfw-med-data-lab/climate-env-ais/Quarto_slides_CLIMATE-ENV-AIS.html){.small}
+:::
+::: {.column width="25%"}
+**Section 2c slides** (spatio-temporal model)
+
+[theophilemt92.github.io/gfw-med-data-lab/<br>climate-env-ais/Quarto_slides_2C_red_mullet.html](https://theophilemt92.github.io/gfw-med-data-lab/climate-env-ais/Quarto_slides_2C_red_mullet.html){.small}
+:::
+::: {.column width="25%"}
+**Full report** (code, tables, diagnostics)
+
+[theophilemt92.github.io/gfw-med-data-lab/<br>climate-env-ais/Quarto_report_CLIMATE-ENV-AIS.html](https://theophilemt92.github.io/gfw-med-data-lab/climate-env-ais/Quarto_report_CLIMATE-ENV-AIS.html){.small}
+:::
+::: {.column width="25%"}
+**Code**
+
+[github.com/TheophileMt92/<br>gfw-med-data-lab](https://github.com/TheophileMt92/gfw-med-data-lab/tree/main/climate-env-ais){.small}
+:::
+::::
+
+<span class="small muted">All GFW data via `gfwr`; MEDITS from JRC; environment from Copernicus Marine. Figures and numbers from the report rendered `r k$rendered`.</span>
+
+## Supplementary {.section-break background-color="#062d4a"}
+
+Detailed results by section of the report, then model diagnostics
 
 ## Total fish abundance: species distribution model
 
@@ -386,59 +518,6 @@ Mean of three 0-1 scores: **heatwave exposure + habitat loss + fishing pressure*
 :::
 :::
 ::::
-
-## Next steps
-
-:::: {.columns}
-::: {.column width="50%"}
-**Fix in the existing pipeline**
-
-1. **AIS ramp-up:** start in 2015 or normalise effort per vessel
-2. **Extrapolation:** predict in the survey months and sampled depth range
-3. **Zeros:** same treatment of unmatched effort in fitting, prediction and averaging
-4. **Index design:** align time windows, test transformation and weights
-:::
-::: {.column width="50%"}
-**Red mullet**
-
-- Identify which environmental term drives the 2015-2021 decline
-- Check it against the observed MEDITS trend
-- Feed red mullet habitat change into the vulnerability index in place of total fish
-- Spatio-temporal model: index standard errors, cross-validation
-- Heatwaves: effort on heatwave days vs other days; heatwave intensity as a model covariate
-:::
-::::
-
-## Slides, report and code {.center}
-
-:::: {.columns}
-::: {.column width="25%"}
-**These slides**
-
-[theophilemt92.github.io/gfw-med-data-lab/<br>climate-env-ais/Quarto_slides_CLIMATE-ENV-AIS.html](https://theophilemt92.github.io/gfw-med-data-lab/climate-env-ais/Quarto_slides_CLIMATE-ENV-AIS.html){.small}
-:::
-::: {.column width="25%"}
-**Section 2c slides** (spatio-temporal model)
-
-[theophilemt92.github.io/gfw-med-data-lab/<br>climate-env-ais/Quarto_slides_2C_red_mullet.html](https://theophilemt92.github.io/gfw-med-data-lab/climate-env-ais/Quarto_slides_2C_red_mullet.html){.small}
-:::
-::: {.column width="25%"}
-**Full report** (code, tables, diagnostics)
-
-[theophilemt92.github.io/gfw-med-data-lab/<br>climate-env-ais/Quarto_report_CLIMATE-ENV-AIS.html](https://theophilemt92.github.io/gfw-med-data-lab/climate-env-ais/Quarto_report_CLIMATE-ENV-AIS.html){.small}
-:::
-::: {.column width="25%"}
-**Code**
-
-[github.com/TheophileMt92/<br>gfw-med-data-lab](https://github.com/TheophileMt92/gfw-med-data-lab/tree/main/climate-env-ais){.small}
-:::
-::::
-
-<span class="small muted">All GFW data via `gfwr`; MEDITS from JRC; environment from Copernicus Marine. Figures and numbers from the report rendered `r k$rendered`.</span>
-
-## Backup {.section-break background-color="#062d4a"}
-
-Collinearity and model diagnostics
 
 ## Collinearity among predictors
 
