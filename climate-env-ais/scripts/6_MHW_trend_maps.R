@@ -12,9 +12,11 @@
 #     effort (hours) can be compared and one threshold means the same for both; the
 #     original ±0.1 threshold was in absolute units and classed only ~3% of cells as stable
 #   - cells without SST data (north of 45.0°N) are shown as missing, not as zero heatwaves
+#   - slopes and p-values recomputed per cell (as in the group's df_slope_pvalue.R: linear
+#     regression on year, 2014-2021); trends with p >= 0.05 are greyed out. For effort, all
+#     cells with at least 1 hour per year on average are used, with zero-effort years kept
 #
 # Inputs : outputs/MHW_grid_<area>.csv            (scripts/5_MHW_grids.R)
-#          data/group/df_slope_6.rds, df_slope.rds  (group: per-cell linear slopes 2014-2021)
 #          data/group/pred_<area>.rds, eff_grid_<area>.rds (group: predictions, trawling hours)
 # Output : trend_maps("6"), trend_maps("1718") return a three-panel ggplot (patchwork)
 
@@ -28,24 +30,31 @@ mhw_max    <- 40     # same heatwave colour scale for both areas (°C days per s
 
 trend_data <- function(area) {
   key <- function(d) mutate(d, X = round(X, 5), Y = round(Y, 5))
-  slope_file <- if (area == "6") "df_slope_6.rds" else "df_slope.rds"
-  slopes <- readRDS(file.path("data/group", slope_file)) |>
-    rename(any_of(c(slope_bio = "slope_den"))) |> key()
-  means <- readRDS(file.path("data/group", paste0("pred_", area, ".rds"))) |>
-    group_by(X, Y) |> summarise(dens_mean = mean(dens), .groups = "drop") |> key() |>
-    inner_join(readRDS(file.path("data/group", paste0("eff_grid_", area, ".rds"))) |>
-                 group_by(X, Y) |> summarise(eff_mean = mean(trawl_y), .groups = "drop") |> key(),
-               by = c("X", "Y"))
+  cell_lm <- function(y, x) {                       # slope and p-value of a linear trend
+    if (sd(y) == 0) return(c(slope = 0, p = 1))
+    co <- summary(lm(y ~ x))$coefficients
+    c(slope = co[2, 1], p = co[2, 4])
+  }
+  bio <- readRDS(file.path("data/group", paste0("pred_", area, ".rds"))) |>
+    group_by(X, Y) |>
+    summarise(dens_mean = mean(dens), fit = list(cell_lm(dens, year)), .groups = "drop") |>
+    mutate(slope_bio = sapply(fit, `[`, "slope"), p_bio = sapply(fit, `[`, "p")) |> select(-fit) |> key()
+  eff <- readRDS(file.path("data/group", paste0("eff_grid_", area, ".rds"))) |>
+    group_by(X, Y) |>
+    summarise(eff_mean = mean(trawl_y), fit = list(cell_lm(trawl_y, year)), .groups = "drop") |>
+    mutate(slope_eff = sapply(fit, `[`, "slope"), p_eff = sapply(fit, `[`, "p")) |> select(-fit) |> key()
   mhw <- read.csv(file.path("outputs", paste0("MHW_grid_", area, ".csv"))) |>
     filter(YEAR %in% 2014:2021) |>
     group_by(X, Y) |>
     summarise(mhw_cum = mean(mhw_cum_intensity), .groups = "drop") |> key()
 
-  slopes |>
-    inner_join(means, by = c("X", "Y")) |>
+  bio |>
+    inner_join(eff, by = c("X", "Y")) |>
     left_join(mhw, by = c("X", "Y")) |>
     mutate(trend_bio = 100 * slope_bio / dens_mean,
-           trend_eff = if_else(eff_mean >= min_effort, 100 * slope_eff / eff_mean, NA_real_))
+           trend_eff = if_else(eff_mean >= min_effort, 100 * slope_eff / eff_mean, NA_real_),
+           sig_bio = p_bio < 0.05,
+           sig_eff = !is.na(trend_eff) & p_eff < 0.05)
 }
 
 trend_maps <- function(area, d = trend_data(area)) {
@@ -60,6 +69,7 @@ trend_maps <- function(area, d = trend_data(area)) {
     guides(fill = guide_colourbar(barwidth = unit(9, "lines"), barheight = unit(0.5, "lines"),
                                   title.position = "top", title.hjust = 0.5))
   tile <- function(var) geom_tile(data = d, aes(X, Y, fill = .data[[var]]), width = 1/24, height = 1/24)
+  # grey: trend not significant (p >= 0.05), little or no effort, or no SST data
   div <- function(name) scale_fill_gradient2(low = "#2166AC", mid = "#F7F7F7", high = "#B2182B", midpoint = 0,
                                              limits = c(-trend_cap, trend_cap), oob = scales::squish,
                                              na.value = "grey70", name = name)
@@ -68,9 +78,11 @@ trend_maps <- function(area, d = trend_data(area)) {
     scale_fill_viridis_c(option = "inferno", na.value = "grey70", limits = c(0, mhw_max), oob = scales::squish,
                          name = "Cumulative intensity\n(°C days per summer)") +
     labs(title = "A. Marine heatwaves, 2014-2021 mean")
-  p2 <- base() + tile("trend_bio") + div("Biomass trend\n(% of cell mean per year)") +
+  d <- mutate(d, trend_bio_sig = if_else(sig_bio, trend_bio, NA_real_),
+              trend_eff_sig = if_else(sig_eff, trend_eff, NA_real_))
+  p2 <- base() + tile("trend_bio_sig") + div("Biomass trend\n(% of cell mean per year)") +
     labs(title = "B. Red mullet biomass trend")
-  p3 <- base() + tile("trend_eff") + div("Trawling trend\n(% of cell mean per year)") +
+  p3 <- base() + tile("trend_eff_sig") + div("Trawling trend\n(% of cell mean per year)") +
     labs(title = "C. Trawling effort trend")
   p1 | p2 | p3
 }

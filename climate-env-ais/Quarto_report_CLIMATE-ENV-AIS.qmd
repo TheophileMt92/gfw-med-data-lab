@@ -16,7 +16,7 @@ format:
       - template/toc-sidebar.html
     theme: none
     toc: true
-    toc-depth: 3
+    toc-depth: 4
     toc-title: "Contents"
     number-sections: false
     fig-align: center
@@ -271,9 +271,13 @@ In 2012, only `r percent(ais_cov$matched[ais_cov$YEAR == 2012], 1)` of hauls fal
 
 > **Discussion point: AIS ramp-up.** Trawler AIS coverage at MEDITS hauls grows sharply over 2012-2014. Any comparison across these years (habitat change in Step 2, heatwave vs non-heatwave summers in Step 3) partly measures AIS uptake. Options: start in 2015, use effort per vessel, or treat early years separately.
 
-## 2a. Species distribution model: total fish abundance
+## 2. Species distribution models
 
-### 2a.1 Response variable
+Three species distribution models (SDMs) relate MEDITS survey catches to the environment and to trawling effort, and predict them on the Copernicus grid. Section 2a models total fish abundance in GSA 6 with the group's original script; Section 2b applies the same workflow to red mullet (*Mullus barbatus*), the group's focal species; Section 2c presents the group's spatio-temporal model of red mullet in GSA 6 and the Adriatic (GSAs 17-18), and builds on it to relate red mullet to marine heatwaves and trawling.
+
+### 2a. Species distribution model: total fish abundance
+
+#### 2a.1 Response variable
 
 Species distribution models (SDMs) relate biological observations to environmental conditions to estimate habitat suitability and predict into unsampled locations. Here the response is **total fish abundance** per haul (N/km², all MEDITS faunistic categories A, Aa, Ae, Ao), modelled within a single GSA so that species-habitat relationships are reasonably homogeneous.
 
@@ -308,7 +312,7 @@ fish6$log_N_km2 <- log(fish6$N_km2)
 
 GSA 6 contributes `r fmt(nrow(fish6))` hauls. Abundance is strongly right-skewed, so it is modelled on the log scale.
 
-### 2a.2 Collinearity
+#### 2a.2 Collinearity
 
 ```{r fig-cor}
 #| fig-cap: "Pairwise Pearson correlations among candidate predictors in GSA 6 hauls. Variables are ordered by hierarchical clustering so that correlated groups sit together; pairs with |r| above 0.6 are outlined."
@@ -391,7 +395,7 @@ kable(vif_tab)
 
 Collinearity is moderate overall. Bottom salinity (`botso`) is the only variable above the VIF threshold of 3, driven by its correlation with depth (r = 0.79) and bottom temperature (r = -0.63), and is dropped. Depth (VIF just under 3) is left out of the candidate set, its information being largely carried by bottom temperature.
 
-### 2a.3 GAM fitting and selection
+#### 2a.3 GAM fitting and selection
 
 Generalised additive models (GAMs, `mgcv`) allow smooth, non-linear responses. Smooths are capped at `k = 4` to keep response curves ecologically interpretable, and `select = TRUE` adds a shrinkage penalty so that unhelpful terms can be shrunk to zero. Hauls with any missing predictor are removed.
 
@@ -578,7 +582,7 @@ A k-index well below 1 with a small p-value would suggest the basis is too small
 
 > **Discussion point: zeros in effort.** Hauls without matched AIS effort have `fishing_hours = NA` and are removed by `na.omit()`, so the model is fitted only on fished cells. On the prediction grid, missing effort is set to 0, outside the fitted range. Treating unmatched hauls as zero effort in both places, or adding a fished / not fished indicator, would make the two consistent.
 
-### 2a.4 Prediction and habitat change
+#### 2a.4 Prediction and habitat change
 
 The fitted model is projected over the Copernicus hindcast grid for July of each year.
 
@@ -682,7 +686,7 @@ Across the `r fmt(sum(!fish.change6$extrapolated))` grid cells within the sample
 
 > **Discussion point: extrapolation in July.** The model is fitted on MEDITS hauls from May and June, all deeper than `r floor(min(fish6$MEAN_DEPTH))` m, but predicts for July over the whole grid. In shallow coastal cells, July bottom temperature reaches `r round(max(fish.pred6$botTemp), 1)` °C, against a maximum of `r round(bt_range[2], 1)` °C in the fitting data, and the rising bottom-temperature smooth then produces implausibly high abundances (up to `r e <- floor(log10(max(fish.pred6$N))); sprintf("%.0f × 10^%d^", max(fish.pred6$N) / 10^e, e)` individuals per km²). `r percent(mean(fish.pred6$extrapolated), 1)` of grid-year predictions fall outside the sampled bottom-temperature range; they are shown in grey and excluded from the change summary above. Predicting for June, as in Section 2b, and restricting the grid to the sampled depth range would avoid most of this.
 
-## 2b. Species distribution model: red mullet
+### 2b. Species distribution model: red mullet
 
 The group has since chosen to focus on **red mullet** (*Mullus barbatus*, MEDITS code `MULLBAR`), a key commercial target of the GSA 6 bottom-trawl fleet. This section repeats the SDM workflow of Section 2a for that species, with three changes that follow from the discussion points above:
 
@@ -690,7 +694,7 @@ The group has since chosen to focus on **red mullet** (*Mullus barbatus*, MEDITS
 - **A Tweedie GAM replaces the Gaussian model on log abundance.** The Tweedie distribution handles exact zeros and skewed positive values in one model, and predictions come out directly as N/km², so no back-transformation is needed.
 - **Depth is added as a candidate predictor**, since red mullet is mainly a continental-shelf species, and hauls without matched AIS effort are set to zero effort in both fitting and prediction.
 
-### 2b.1 Response variable
+#### 2b.1 Response variable
 
 ```{r mb-data}
 #| code-summary: "Build the red mullet haul table for GSA 6, with zeros"
@@ -748,7 +752,7 @@ mb_depth_tab <- mull6 |>
    labs(title = "Mean density (N/km²)", x = "Depth (m)", y = NULL)) & theme_ocean()
 ```
 
-### 2b.2 Collinearity
+#### 2b.2 Collinearity
 
 ```{r tbl-mb-vif}
 #| tbl-cap: "Variance inflation factors of the red mullet predictors, all GSA 6 hauls (zeros included). variable: botTemp: bottom temperature, °C; so: surface salinity, PSU; chl: surface chlorophyll-a, mg/m³; depth: haul depth, m; fishing_hours: GFW AIS apparent trawler fishing hours in the haul's 0.1° cell and year (0 when unmatched). VIF: 1 / (1 − R²) of the regression of that predictor on all the others; values above 3 indicate problematic collinearity."
@@ -767,7 +771,7 @@ kable(tibble(variable = names(mb_vars), VIF = round(vif_manual(mb_vars), 2)))
 cor_heatmap(mb_vars)
 ```
 
-### 2b.3 GAM fitting
+#### 2b.3 GAM fitting
 
 Two models are compared: one with the predictors retained by the group in Section 2a, and one adding depth. Settings are otherwise the same (`k = 4`, REML, `select = TRUE`), with a Tweedie family and log link.
 
@@ -833,7 +837,7 @@ Depth transforms the model: deviance explained rises from `r percent(summary(mb_
 
 > **Discussion point: the fishing-hours smooth.** The effort term is strong but non-monotonic, with the highest predicted density in cells with no recorded effort, a dip around 1,000-1,500 hours and a second peak around 3,000. This is unlikely to be a causal effect of trawling. Trawlers target red mullet grounds, so effort and density are confounded, and "zero effort" mixes untrawled areas with hauls that simply had no AIS match in the early years. The term is best read as a nuisance covariate, and the effort-held-constant predictions below remove its influence on the time trend.
 
-### 2b.4 Prediction and habitat change
+#### 2b.4 Prediction and habitat change
 
 The depth model is projected onto the hindcast grid for **June**, the main MEDITS month in GSA 6, so that predictions match the conditions the model was fitted on. Grid cells deeper than the deepest sampled haul are excluded to avoid extrapolation. Habitat change is computed **2015 to 2021**, after the AIS ramp-up, and also with fishing effort held at each cell's 2015-2021 mean, so that the change reflects the environment alone.
 
@@ -917,11 +921,11 @@ Across the `r fmt(nrow(mull.change6))` shelf and upper-slope cells predicted in 
 
 > **Discussion point: what drives the decline.** The effort-held-constant change reflects only bottom temperature, salinity and chlorophyll, but not which of them. Mean bottom temperature on the prediction grid is similar in 2015 and 2021, so the decline is not simply a warming signal. Partial predictions varying one covariate at a time, and a check against the observed MEDITS trend, would show which term drives it. Using two single years also makes the change sensitive to the conditions in those particular Junes. A trend over 2015-2021 would be more robust. The 2012 predictions are the highest of the series because 2012 hauls carry near-zero recorded effort, another reason to start in 2015.
 
-## 2c. Red mullet: the group's spatio-temporal model (GSA 6 and Adriatic)
+### 2c. Red mullet: the group's spatio-temporal model (GSA 6 and Adriatic)
 
 On the morning of 21 October the working group extended the red mullet analysis to a second area, the Adriatic (GSAs 17-18), and moved to a spatio-temporal species distribution model. This section presents that work from the files shared in the group's `shared_data` folder. The model structure was first reconstructed from the saved predictions (see Section 2c.2); the fitted model objects shared later in the afternoon (`fit_6.rds`, `fit_1718.rds`) confirm it and give the goodness of fit (see Section 2c.3). The data-preparation script has not been shared yet.
 
-### 2c.1 Aims and data decisions
+#### 2c.1 Aims and data decisions
 
 The group's aims were to describe red mullet biomass in space and time in both areas, express habitat suitability on a 0-1 scale, and later relate it to marine heatwaves and fishing effort. Three decisions shape the analysis:
 
@@ -955,7 +959,7 @@ kable(hauls_g |> rename(Area = region))
 
 The two datasets hold `r fmt(sum(mb_g$region == "GSA 6"))` and `r fmt(sum(mb_g$region == "GSAs 17-18"))` valid hauls. Red mullet is absent from `r percent(mean(mb_g$biomass_kgkm2[mb_g$region == "GSA 6"] == 0), 1)` of GSA 6 hauls and `r percent(mean(mb_g$biomass_kgkm2[mb_g$region == "GSAs 17-18"] == 0), 1)` of Adriatic hauls. Two years are thinly sampled: GSA 6 in 2020 (`r sum(mb_g$region == "GSA 6" & mb_g$year == 2020)` hauls, COVID-19) and the Adriatic in 2017 (`r sum(mb_g$region == "GSAs 17-18" & mb_g$year == 2017)` hauls, a known data issue in the *Recap*).
 
-### 2c.2 How the model was reconstructed
+#### 2c.2 How the model was reconstructed
 
 The prediction files contain, for each 1/24° grid cell (about 16 km²) and year, the columns `est`, `est_non_rf`, `est_rf`, `omega_s`, `epsilon_st` and `dens`. This is the standard prediction output of the R package **sdmTMB**: a log-link model whose linear predictor `est` is the sum of fixed effects (`est_non_rf`), a spatial random field constant over years (`omega_s`) and a spatio-temporal random field that varies by year (`epsilon_st`), with `dens = exp(est)`. All of these identities hold exactly in both files.
 
@@ -977,7 +981,7 @@ kable(fe |> mutate(across(where(is.numeric), \(x) round(x, 4))) |> rename(Area =
 
 A linear function of depth and bottom temperature reproduces the fixed-effect predictions exactly (R² = 1) in both areas, with no separate year effect. On the response scale, biomass falls by `r percent(1 - exp(100 * fe[[3]][1]), 1)` per 100 m of depth in GSA 6 and by `r percent(1 - exp(100 * fe[[3]][2]), 1)` in the Adriatic, and rises by `r percent(exp(fe[[4]][1]) - 1, 1)` and `r percent(exp(fe[[4]][2]) - 1, 1)` per +1 °C of bottom temperature. Year-to-year change therefore comes only from bottom temperature and the spatio-temporal field. The observation family and the mesh are not recoverable from the predictions.
 
-### 2c.3 Fitted models and goodness of fit
+#### 2c.3 Fitted models and goodness of fit
 
 The fitted objects confirm the reconstruction (the per-°C and per-metre effects below match it). Both areas use the same **sdmTMB** model: a Tweedie observation model with a log link, the fixed effects `0 + scale(sbt) + scale(depth)`, a spatial random field and an AR(1) spatio-temporal field by year, on an SPDE mesh. They were fitted with sdmTMB 0.7.0. To compute residuals with the installed version, each model is refitted below on the same data and mesh; the estimates are identical to the shared objects.
 
@@ -1055,7 +1059,7 @@ p_qq | p_of
 
 Residuals follow the normal line closely in both areas, so the Tweedie observation model fits the zeros and the skewed catches well. Fitted and observed biomass are strongly correlated (r = `r round(grp_cor$r[1], 2)` in GSA 6 and `r round(grp_cor$r[2], 2)` in the Adriatic, on the log scale). These are in-sample fits that include the random fields, so they describe how well the model reproduces the data rather than how well it predicts new hauls; a cross-validation (`sdmTMB_cv()`) would test the latter.
 
-#### 2c.3.1 Effect of bottom temperature in the two areas
+##### 2c.3.1 Effect of bottom temperature in the two areas
 
 ```{r fig-grp-temp}
 #| fig-cap: "Effect of bottom temperature on red mullet biomass in the group's models: predicted biomass relative to the mean bottom temperature of each area's hauls, at constant depth, with 95% confidence bands, over the range of bottom temperatures sampled in each area."
@@ -1100,7 +1104,7 @@ Bottom temperature has a clear positive effect in the Adriatic: biomass rises by
 
 > **Discussion point: no intercept.** The formula `0 + scale(sbt) + scale(depth)` has no intercept, so the mean level of log biomass has to be absorbed by the spatial random field. This inflates the spatial field (σ ω = `r grp_fit_tab[["σ ω"]][1]` in GSA 6) and makes ω harder to interpret as hotspots. Adding the intercept (or a year factor, `0 + as.factor(year) + ...`, the usual choice for an index) is recommended.
 
-### 2c.4 Predicted biomass
+#### 2c.4 Predicted biomass
 
 ```{r grp-maps-setup}
 #| echo: false
@@ -1135,7 +1139,7 @@ ggplot() + tile(filter(pred_g, region == "GSAs 17-18"), "dens") + land +
 
 In GSA 6, predicted biomass is highest on the inner shelf along the whole coast and drops quickly offshore, matching the depth pattern of Section 2b. In the Adriatic, biomass is highest in the shallow northern basin and along the Croatian coast and lower in the deeper central and southern basin, a gentler gradient that reflects the weaker depth effect and the much wider shelf.
 
-### 2c.5 Spatial and spatio-temporal random effects
+#### 2c.5 Spatial and spatio-temporal random effects
 
 ```{r fig-grp-eps}
 #| fig-cap: "Random effects of the group's model. First column: spatial random field (ω), constant over years, centred within each area; persistent hotspots (red) and coldspots (blue) of biomass not explained by depth and bottom temperature. Other columns: spatio-temporal random field (ε) by year, the departure from that persistent pattern in each year. One colour scale for all panels."
@@ -1164,7 +1168,7 @@ re_map("GSA 6", gsa6_view) / re_map("GSAs 17-18", adr_view) +
 
 The spatio-temporal field is small in GSA 6 (ε between `r round(min(pred_g$epsilon_st[pred_g$region == "GSA 6"]), 2)` and `r round(max(pred_g$epsilon_st[pred_g$region == "GSA 6"]), 2)`) but large in the Adriatic (`r round(min(pred_g$epsilon_st[pred_g$region == "GSAs 17-18"]), 2)` to `r round(max(pred_g$epsilon_st[pred_g$region == "GSAs 17-18"]), 2)`), where a value of ±2.9 multiplies local biomass by up to about `r round(exp(max(abs(pred_g$epsilon_st[pred_g$region == "GSAs 17-18"]))))`. In GSA 6, most of the spatial structure is persistent (ω, first column) rather than year-specific: ω spans `r round(diff(range(re_long$value[re_long$region == "GSA 6" & re_long$panel == "ω (all years)"])), 1)` log units across the area, against `r round(diff(range(pred_g$epsilon_st[pred_g$region == "GSA 6"])), 1)` for ε. In the Adriatic, the year-specific field is as large as the persistent one.
 
-### 2c.6 Biomass index
+#### 2c.6 Biomass index
 
 Summing predicted biomass over all grid cells gives an annual index of total red mullet biomass in each area.
 
@@ -1197,7 +1201,7 @@ The GSA 6 index stays within ±`r percent(max(abs(idx_g$rel[idx_g$region == "GSA
 
 > **Discussion point: extrapolation in GSA 6.** The GSA 6 prediction grid reaches `r round(min(pred_g$depth[pred_g$region == "GSA 6"]))` m depth and `r round(max(pred_g$sbt[pred_g$region == "GSA 6"]), 1)` °C bottom temperature, while the hauls cover `r floor(min(mb_g$depth[mb_g$region == "GSA 6"]))`-`r ceiling(max(mb_g$depth[mb_g$region == "GSA 6"]))` m and at most `r round(max(mb_g$sbt[mb_g$region == "GSA 6"], na.rm = TRUE), 1)` °C. With linear, positive temperature and negative depth effects, the shallowest, warmest coastal cells get the highest predicted biomass by extrapolation: cells shallower than the shallowest haul make up `r percent(with(filter(pred_g, region == "GSA 6"), mean(depth < min(mb_g$depth[mb_g$region == "GSA 6"]))), 1)` of the GSA 6 grid but hold `r percent(with(filter(pred_g, region == "GSA 6"), sum((dens * cell_km2)[depth < min(mb_g$depth[mb_g$region == "GSA 6"])]) / sum(dens * cell_km2)), 1)` of its predicted biomass. This is the same issue as for total fish in Section 2a; restricting the prediction grid to the sampled depth range would avoid it.
 
-### 2c.7 Habitat suitability index
+#### 2c.7 Habitat suitability index
 
 The group's final aim was a 0-1 habitat suitability index (HSI), mapped for both areas. The way it was rescaled is not documented, but rescaling the fixed-effect part of the model (depth and bottom temperature, `est_non_rf`) to 0-1 across all years within each area reproduces the group's maps closely, so that definition is used here. Because it uses the environmental effects only, the HSI describes where conditions suit red mullet, not the persistent hotspots captured by ω.
 
@@ -1234,7 +1238,7 @@ Suitability is highest on the shallow inner shelf in both areas. In the Adriatic
 
 > **Still to share:** the data-preparation script that builds `MB_*.rds` and the effort and prediction grids, and confirmation of the HSI rescaling. With the fitted models now shared, the index uncertainty can be computed with `get_index()`.
 
-### 2c.8 Change in habitat suitability, 2014 to 2021
+#### 2c.8 Change in habitat suitability, 2014 to 2021
 
 ```{r grp-perc}
 #| code-summary: "Percentage change in HSI, 2014 to 2021"
@@ -1306,7 +1310,7 @@ In GSA 6, suitability barely changes between 2014 and 2021 (median `r round(medi
 
 > **Discussion points.** (1) A percentage change of a 0-1 index rescaled to its minimum is unstable: where the 2014 HSI is close to zero, a tiny absolute change becomes a large percentage (up to `r round(max(hsi_chg$perc[hsi_chg$region == "GSA 6"]))`% in a GSA 6 cell). The strongest increase in the Adriatic, the central patch, is the same case: in absolute HSI points it is small, while the loss over the northern basin, which has high suitability, is the larger change. The difference in HSI points (summarised in the table) is the more robust measure. (2) Comparing two single years mixes trend with year-to-year variability; a per-cell linear trend over 2014-2021 would be a better summary of change. (3) A fixed colour scale shared by both areas, and centred on zero, would make the group's two maps directly comparable.
 
-### 2c.9 Overlap between red mullet and trawling
+#### 2c.9 Overlap between red mullet and trawling
 
 The last step so far links the model to the fishery, the group's next aim after the index and the HSI. The group mapped, for each year, a local correlation between red mullet and trawling effort: red where the two rise and fall together across neighbouring cells (trawling concentrates where red mullet is abundant), blue where they diverge.
 
@@ -1325,9 +1329,9 @@ In GSA 6, correlations are mostly negative, with positive patches on parts of th
 
 > **Still to share:** the script behind the correlation map (variables, window, method).
 
-### 2c.10 Marine heatwaves, biomass trends and trawling trends
+#### 2c.10 Marine heatwaves, biomass trends and trawling trends
 
-The group's last step relates the red mullet model to marine heatwaves (MHWs) and to trawling. For each grid cell of the predictions, it combines three layers: summer heatwave exposure, the 2014-2021 linear trend in predicted biomass, and the 2014-2021 linear trend in trawling hours. The trends were computed by the group (`df_slope_6.rds`, `df_slope.rds`); they match exactly a per-cell linear regression of the predicted biomass (`pred_*.rds`) and of the yearly trawling hours (`eff_grid_*.rds`) on year.
+The group's last step relates the red mullet model to marine heatwaves (MHWs) and to trawling. For each grid cell of the predictions, it combines three layers: summer heatwave exposure, the 2014-2021 linear trend in predicted biomass, and the 2014-2021 linear trend in trawling hours. The trends are per-cell linear regressions on year of the predicted biomass (`pred_*.rds`) and of the yearly trawling hours (`eff_grid_*.rds`), as in the group's `df_slope_6.rds`, `df_slope.rds` and `df_slope_pvalue.R`; trends with p ≥ 0.05 are greyed out.
 
 The heatwave metrics are recomputed here for both areas on the prediction grid, with the method of Section 3 (Hobday et al. 2016, `heatwaveR`, summer events peaking in June-August). The group's two scripts are included in the repository with relative paths (`scripts/5_MHW_grids.R`, adapted from `mhw_GSA6.R`; `scripts/6_MHW_trend_maps.R`, adapted from `Plot_MHW_BiologicalTrend_Effor_ttrend.R`).
 
@@ -1409,7 +1413,8 @@ trend_g <- bind_rows(trend_data("6") |> mutate(region = "GSA 6"),
 ```
 
 ```{r fig-grp-trends-6}
-#| fig-cap: "GSA 6. A: mean summer cumulative heatwave intensity, 2014-2021 (°C days per summer). B: linear trend in predicted red mullet biomass, 2014-2021, as a percentage of the cell's mean biomass per year. C: linear trend in trawling hours, 2014-2021, as a percentage of the cell's mean hours per year (grey: less than 1 hour per year on average). Trend colour scales are capped at ±15% per year."
+#| cache: false
+#| fig-cap: "GSA 6. A: mean summer cumulative heatwave intensity, 2014-2021 (°C days per summer). B: linear trend in predicted red mullet biomass, 2014-2021, as a percentage of the cell's mean biomass per year. C: linear trend in trawling hours, 2014-2021, as a percentage of the cell's mean hours per year. In B and C, grey cells have a trend that is not significant (p ≥ 0.05) or, for trawling, less than 1 hour per year on average. Trend colour scales are capped at ±15% per year."
 #| fig-width: 10
 #| fig-height: 5.6
 
@@ -1417,6 +1422,7 @@ trend_maps("6", filter(trend_g, region == "GSA 6"))
 ```
 
 ```{r fig-grp-trends-1718}
+#| cache: false
 #| fig-cap: "GSAs 17-18 (Adriatic). Panels as in the GSA 6 figure. Grey in A: no SST data (north of 45.0°N)."
 #| fig-width: 12
 #| fig-height: 5.2
@@ -1425,7 +1431,7 @@ trend_maps("1718", filter(trend_g, region == "GSAs 17-18"))
 ```
 
 ```{r tbl-grp-trends}
-#| tbl-cap: "Summary of the heatwave and trend layers by area. Area: GSA 6 or GSAs 17-18. MHW intensity (°C days per summer): median over cells of the 2014-2021 mean summer cumulative heatwave intensity. Biomass trend (%/yr), Trawling trend (%/yr): median over cells of the linear trend, as a percentage of the cell's mean per year. Cells with biomass decline, Cells with trawling decline: share of cells with a negative trend. r (MHW, biomass trend), r (MHW, trawling trend): Spearman correlation across cells between heatwave intensity and each trend."
+#| tbl-cap: "Summary of the heatwave and trend layers by area. Area: GSA 6 or GSAs 17-18. MHW intensity (°C days per summer): median over cells of the 2014-2021 mean summer cumulative heatwave intensity. Biomass trend (%/yr), Trawling trend (%/yr): median over cells of the linear trend, as a percentage of the cell's mean per year. Cells with biomass decline, Cells with trawling decline: share of cells with a negative trend. r (MHW, biomass trend), r (MHW, trawling trend): Spearman correlation across cells between heatwave intensity and each trend. Significant biomass trends, Significant trawling trends: share of cells with p < 0.05 (in brackets, after a Benjamini-Hochberg false discovery rate correction across cells)."
 #| classes: tbl-compact
 
 kable(trend_g |>
@@ -1436,14 +1442,17 @@ kable(trend_g |>
                   `Trawling trend (%/yr)` = round(median(trend_eff, na.rm = TRUE), 1),
                   `Cells with trawling decline` = percent(mean(trend_eff < 0, na.rm = TRUE), 1),
                   `r (MHW, biomass trend)` = round(cor(mhw_cum, trend_bio, method = "spearman", use = "complete.obs"), 2),
-                  `r (MHW, trawling trend)` = round(cor(mhw_cum, trend_eff, method = "spearman", use = "complete.obs"), 2)))
+                  `r (MHW, trawling trend)` = round(cor(mhw_cum, trend_eff, method = "spearman", use = "complete.obs"), 2),
+                  `Significant biomass trends` = sprintf("%s (%s)", percent(mean(sig_bio), 1), percent(mean(p.adjust(p_bio, "BH") < 0.05), 1)),
+                  `Significant trawling trends` = sprintf("%s (%s)", percent(mean(sig_eff), 1),
+                                                          percent(mean(!is.na(trend_eff) & p.adjust(p_eff, "BH") < 0.05), 1))))
 ```
 
 Trends are shown relative to each cell's mean, so that biomass (kg/km²) and effort (hours) are on the same scale and one threshold means the same for both. In GSA 6, predicted biomass rises slightly over most of the shelf, while trawling trends form a fine mosaic of increases and decreases. In the Adriatic, biomass trends follow the broad patches of the spatio-temporal field, and heatwave exposure is highest along the Italian coast and in the south.
 
-> **Discussion points.** (1) The heatwave map in the group's script grouped the data by year and cell, so the ten yearly maps were drawn on top of each other and only the last year was visible; here the panel shows the mean summer cumulative intensity over 2014-2021, the period of the trends. (2) The group classed trends as decreasing, stable or increasing with a threshold of ±0.1 in absolute units (kg/km² per year for biomass, hours per year for effort), which leaves only about 3% of cells "stable" in the Adriatic; relative trends, as here, or classes based on significance are more meaningful. Significance of the slopes is to be shared by the group and can then be used to grey out non-significant trends. (3) The biomass trends come from model predictions that include the spatio-temporal field, so in the Adriatic part of the pattern reflects year-to-year noise in that field. (4) The climatology uses 2010-2021, shorter than the 30-year baseline recommended by Hobday et al. (2016).
+> **Discussion points.** (1) The heatwave map in the group's script grouped the data by year and cell, so the ten yearly maps were drawn on top of each other and only the last year was visible; here the panel shows the mean summer cumulative intensity over 2014-2021, the period of the trends. (2) The group classed trends as decreasing, stable or increasing with a threshold of ±0.1 in absolute units (kg/km² per year for biomass, hours per year for effort), which leaves only about 3% of cells "stable" in the Adriatic; relative trends, as here, or classes based on significance are more meaningful. Few trends are significant: `r percent(mean(trend_g$sig_bio[trend_g$region == "GSA 6"]), 1)` of GSA 6 cells and `r percent(mean(trend_g$sig_bio[trend_g$region == "GSAs 17-18"]), 1)` of Adriatic cells for biomass, and none survives a false discovery rate correction (table). With eight years per cell and thousands of cells, about 5% of cells are expected to show p < 0.05 by chance, and neighbouring cells are not independent, especially for biomass, which comes from a smooth model surface; the false discovery rate column of the table gives a more conservative view. (3) The biomass trends come from model predictions that include the spatio-temporal field, so in the Adriatic part of the pattern reflects year-to-year noise in that field. (4) The climatology uses 2010-2021, shorter than the 30-year baseline recommended by Hobday et al. (2016).
 
-### 2c.11 Trawling in strong and weak heatwave summers
+#### 2c.11 Trawling in strong and weak heatwave summers
 
 Section 3.2 compares trawling in GSA 6 between heatwave summers (2017, 2018, 2020) and quieter ones (2013, 2014, 2016), and the group had started to redo this on the new grid (`mhw_GSA6.R`). Here the comparison is made for both areas with each area's own contrasting summers (@tbl-grp-mhw-years), all from 2015 onward so that the AIS ramp-up does not enter the contrast. Daily trawler effort for June-August is downloaded at 0.01° with `gfwr`, and each summer is summarised by fleet-level metrics (`scripts/7_fleet_MHW.R`).
 
@@ -1526,7 +1535,7 @@ lr_map <- function(reg, view) {
 
 There is no consistent difference in fleet behaviour between strong and weak heatwave summers in either area. Total trawling hours differ by `r fleet_tab2$Difference[fleet_tab2$Area == "GSA 6" & fleet_tab2$Metric == "Total hours (thousands)"]` in GSA 6 and `r fleet_tab2$Difference[fleet_tab2$Area == "GSAs 17-18" & fleet_tab2$Metric == "Total hours (thousands)"]` in the Adriatic, well within the spread between individual summers, and the number of vessels, the depth and distance to coast of fishing and the share of effort on the shelf barely change. The cell map shows a mosaic of local increases and decreases rather than a coherent shift. This contrasts with Section 3.2, where effort appeared higher in heatwave years: with the early, low-AIS years removed from the contrast, that difference disappears.
 
-#### 2c.11.1 Do strong and weak heatwave summers use the same fishing grounds?
+##### 2c.11.1 Do strong and weak heatwave summers use the same fishing grounds?
 
 Similar totals could hide a move to other grounds. Three spatial measures test this on the 0.05° grid, for each pair of summers:
 
@@ -1624,7 +1633,7 @@ overlap_tab <- overlap_g |>
 kable(overlap_tab |> mutate(`Centre-of-gravity shift (km)` = coalesce(as.character(`Centre-of-gravity shift (km)`), "")))
 ```
 
-#### 2c.11.2 Overlap with red mullet habitat and with the heat
+##### 2c.11.2 Overlap with red mullet habitat and with the heat
 
 The same yearly effort can be related to the two layers of Section 2c, cell by cell: the red mullet biomass predicted for that summer's year, and that summer's heatwave intensity (nearest prediction cell, for trawling within 5 km of the prediction grid: `r percent(with(filter(fleet_y, region == "GSA 6"), sum(hours[on_grid]) / sum(hours)), 1)` of the hours in GSA 6, where much trawling is deeper than the grid, and `r percent(with(filter(fleet_y, region == "GSAs 17-18"), sum(hours[on_grid]) / sum(hours)), 1)` in the Adriatic).
 
@@ -1694,6 +1703,128 @@ exp_txt <- function(reg) with(filter(hab_m, region == reg), sprintf("%.2f agains
 The fleets fish the same grounds in strong and weak heatwave summers. In GSA 6, the overlap between a strong and a weak summer (D = `r ovn("GSA 6", "Strong vs weak", "Schoener's D")`) is as high as between two summers of the same kind (`r ovn("GSA 6", "Strong vs strong", "Schoener's D")` and `r ovn("GSA 6", "Weak vs weak", "Schoener's D")`), and the same holds in the Adriatic (`r ovn("GSAs 17-18", "Strong vs weak", "Schoener's D")` against `r ovn("GSAs 17-18", "Strong vs strong", "Schoener's D")` and `r ovn("GSAs 17-18", "Weak vs weak", "Schoener's D")`). The centre of gravity of trawling moves by `r ovn("GSA 6", "Strong vs weak", "Centre-of-gravity shift (km)")` km in GSA 6 and `r ovn("GSAs 17-18", "Strong vs weak", "Centre-of-gravity shift (km)")` km in the Adriatic between the two types of summer, and `r percent(core_share$both[1], 1)` and `r percent(core_share$both[2], 1)` of core cells are core in both. The cells that are core in only one type of summer are scattered along the edges of the main grounds, as expected from year-to-year variation. The share of effort on red mullet hotspots barely changes (`r hab_txt('GSA 6')` in GSA 6, `r hab_txt('GSAs 17-18')` in the Adriatic, strong against weak summers). Relative to where heatwaves strike, the fleet is not displaced either: the heatwave exposure ratio is `r exp_txt('GSA 6')` in GSA 6 and `r exp_txt('GSAs 17-18')` in the Adriatic (strong against weak summers). Ratios close to 1 in both types of summer mean that trawling is spread across hot and cool cells in proportion to the grid, and does not shift away from the cells that heat up most.
 
 > **Discussion points.** (1) With three summers per group, year-to-year differences that have nothing to do with heatwaves (fuel prices, closures, COVID-19 in 2020, a strong heatwave summer in GSA 6 and a weak one in the Adriatic) weigh as much as the heatwave contrast. (2) Summer-level metrics may hide short-term responses: heatwaves last days to weeks. A stronger design uses the daily data already downloaded, comparing effort on heatwave days and on other days of the same summers in the same cells. (3) Across all summers from 2015 to 2021, a regression of each fleet metric on the area's heatwave intensity would use all years instead of six. (4) Management measures that changed over the period, such as spatial closures, should be checked before reading local patches in the map as heatwave responses.
+
+#### 2c.12 Heatwaves and predicted red mullet biomass
+
+The group's preliminary report on the Adriatic (`Mullus barbatus in GSA 6 and GSA 17–18 — preliminary report`, with code shared on 22 October) asks whether heatwaves relate to red mullet biomass at two scales: across years, through the biomass index, and within years, through the year-specific part of the predictions (`epsilon_st`, the spatio-temporal field: how much a cell's log biomass departs from its usual level in a given year). The analysis is reproduced here for the Adriatic and extended to GSA 6, with the heatwave metrics of Section 2c.10 and, as the report proposes as a next step, depth and latitude added to the within-year model.
+
+```{r grp-rel}
+#| code-summary: "Join predictions, trawling and heatwaves (same summer and previous summer)"
+#| cache: false
+
+rel_g <- bind_rows(lapply(c(`GSA 6` = "6", `GSAs 17-18` = "1718"), \(a) {
+  mhw <- read.csv(file.path("outputs", paste0("MHW_grid_", a, ".csv"))) |>
+    mutate(X = round(X, 4), Y = round(Y, 4)) |>
+    arrange(X, Y, YEAR) |> group_by(X, Y) |>
+    mutate(mhw_lag = lag(mhw_cum_intensity)) |> ungroup() |>
+    select(X, Y, year = YEAR, mhw = mhw_cum_intensity, mhw_lag)
+  readRDS(file.path("data/group", paste0("pred_", a, ".rds"))) |>
+    mutate(X = round(X, 4), Y = round(Y, 4)) |>
+    left_join(mhw, by = c("X", "Y", "year"))
+}), .id = "region")
+
+annual_g <- rel_g |>
+  group_by(region, year) |>
+  summarise(`Biomass index` = sum(dens * cell_km2) / 1000,                 # tonnes
+            `Trawling hours` = sum(trawl_y),
+            `MHW, same summer` = mean(mhw, na.rm = TRUE),
+            `MHW, previous summer` = mean(mhw_lag, na.rm = TRUE), .groups = "drop")
+```
+
+##### Across years
+
+```{r fig-grp-annual}
+#| fig-cap: "Annual series, 2014-2021, standardised within each area (z-scores): predicted red mullet biomass index, total trawling hours on the prediction grid, and mean summer cumulative heatwave intensity in the same and in the previous summer. Shaded: the three strongest heatwave summers of each area."
+#| fig-width: 11
+#| fig-height: 4.6
+
+ann_long <- annual_g |>
+  pivot_longer(-c(region, year)) |>
+  group_by(region, name) |> mutate(z = as.numeric(scale(value))) |> ungroup() |>
+  mutate(name = factor(name, c("Biomass index", "Trawling hours", "MHW, same summer", "MHW, previous summer")))
+hot_years <- mhw_year |> filter(YEAR >= 2014) |> group_by(region) |> slice_max(cum, n = 3) |> ungroup()
+
+ggplot(ann_long, aes(year, z, colour = name, linewidth = name)) +
+  geom_rect(data = hot_years, aes(xmin = YEAR - 0.4, xmax = YEAR + 0.4, ymin = -Inf, ymax = Inf),
+            inherit.aes = FALSE, fill = "#fbe3d6") +
+  geom_hline(yintercept = 0, colour = "grey70") +
+  geom_line() + geom_point(size = 1.6) +
+  scale_colour_manual(values = c(`Biomass index` = pal_ocean[["deep"]], `Trawling hours` = "grey55",
+                                 `MHW, same summer` = pal_ocean[["alert"]], `MHW, previous summer` = "#e4b363"), name = NULL) +
+  scale_linewidth_manual(values = c(1.3, 0.6, 0.9, 0.6), guide = "none") +
+  scale_x_continuous(breaks = 2014:2021) +
+  facet_wrap(~region) + labs(x = NULL, y = "Standardised value (z-score)") + theme_ocean()
+```
+
+```{r tbl-grp-annual}
+#| tbl-cap: "Spearman rank correlations between the annual series, 2014-2021 (eight years), by area. Area: GSA 6 or GSAs 17-18. Biomass vs MHW (same summer), Biomass vs MHW (previous summer), Biomass vs trawling: correlation of the predicted biomass index with the mean summer cumulative heatwave intensity of the same summer, of the previous summer, and with total trawling hours. Strong MHW summers: the three strongest summers from 2014, with the change in the biomass index from the previous year."
+#| classes: tbl-compact
+
+kable(annual_g |>
+        group_by(Area = region) |>
+        summarise(`Biomass vs MHW (same summer)` = round(cor(`Biomass index`, `MHW, same summer`, method = "spearman"), 2),
+                  `Biomass vs MHW (previous summer)` = round(cor(`Biomass index`, `MHW, previous summer`, method = "spearman"), 2),
+                  `Biomass vs trawling` = round(cor(`Biomass index`, `Trawling hours`, method = "spearman"), 2),
+                  `Strong MHW summers` = {
+                    hy <- hot_years$YEAR[hot_years$region == first(Area)]
+                    ch <- `Biomass index` / lag(`Biomass index`) - 1
+                    paste(sprintf("%d (%s)", year[year %in% hy], percent(ch[year %in% hy], 1, style_positive = "plus")), collapse = ", ")
+                  }))
+```
+
+In the Adriatic, as the group's report found, the biomass index falls in the two strongest heatwave summers, 2015 and 2018, and recovers the next year, but the overall correlation is weak because 2020, with almost no heatwave, has the lowest index. GSA 6 shows the opposite pattern: its strongest heatwave summers (2017, 2020) are among its highest-biomass years. With eight years per area and two areas behaving in opposite ways, the annual series do not support a general heatwave effect on red mullet biomass.
+
+##### Within years
+
+```{r grp-rel-gam}
+#| code-summary: "Within-year GAM of the spatio-temporal deviation (epsilon_st)"
+#| cache: true
+#| dependson: "grp-rel"
+
+rel_gam <- lapply(split(rel_g, rel_g$region), \(d) {
+  d <- filter(d, !is.na(mhw), !is.na(mhw_lag))
+  gam(epsilon_st ~ s(mhw, k = 4) + s(mhw_lag, k = 4) + s(log1p(trawl_y), k = 4) +
+        s(depth, k = 4) + s(Y, k = 4) + factor(year),
+      data = d, method = "REML")
+})
+```
+
+```{r fig-grp-rel-gam}
+#| fig-cap: "Within-year relationships between the spatio-temporal deviation of predicted red mullet log biomass (epsilon_st) and heatwave intensity in the same summer, heatwave intensity in the previous summer, and trawling hours (log scale), from a GAM that also includes depth, latitude and a year factor. Lines: partial effects; bands: approximate 95% intervals; rugs: data. The year factor removes the annual means, so the curves describe contrasts between cells within the same year."
+#| fig-width: 11
+#| fig-height: 6
+
+term_df <- bind_rows(lapply(names(rel_gam), \(a) {
+  m <- rel_gam[[a]]; d <- m$model
+  bind_rows(lapply(c(mhw = "MHW, same summer (°C days)", mhw_lag = "MHW, previous summer (°C days)",
+                     trawl = "Trawling hours (log1p)"), \(lab) {
+    v <- names(which(c(mhw = "MHW, same summer (°C days)", mhw_lag = "MHW, previous summer (°C days)",
+                       trawl = "Trawling hours (log1p)") == lab))
+    xs <- if (v == "trawl") log1p(d$`log1p(trawl_y)` |> expm1()) else d[[v]]
+    grid <- seq(quantile(xs, 0.01), quantile(xs, 0.99), length.out = 100)
+    nd <- d[rep(1, 100), ]
+    for (cc in c("mhw", "mhw_lag", "depth", "Y")) nd[[cc]] <- median(d[[cc]])
+    nd$trawl_y <- median(expm1(d$`log1p(trawl_y)`))
+    if (v == "trawl") nd$trawl_y <- expm1(grid) else nd[[v]] <- grid
+    tm <- predict(m, newdata = nd, type = "terms", se.fit = TRUE)
+    col <- switch(v, mhw = "s(mhw)", mhw_lag = "s(mhw_lag)", trawl = "s(log1p(trawl_y))")
+    tibble(region = a, term = lab, x = grid, fit = tm$fit[, col], se = tm$se.fit[, col])
+  }))
+}))
+
+term_df <- mutate(term_df, term = factor(term, c("MHW, same summer (°C days)", "MHW, previous summer (°C days)", "Trawling hours (log1p)")))
+ggplot(term_df, aes(x, fit, colour = region, fill = region)) +
+  geom_hline(yintercept = 0, colour = "grey70") +
+  geom_ribbon(aes(ymin = fit - 1.96 * se, ymax = fit + 1.96 * se), alpha = 0.2, colour = NA) +
+  geom_line(linewidth = 0.9) +
+  scale_colour_manual(values = grp_cols, name = NULL) + scale_fill_manual(values = grp_cols, name = NULL) +
+  facet_grid(region ~ term, scales = "free_x") +
+  labs(x = NULL, y = "Partial effect on epsilon_st (log scale)") + theme_ocean()
+```
+
+Within years, the relationships are small in GSA 6 and not monotonic in the Adriatic. There, with depth and latitude in the model, biomass is slightly below its usual level in cells with moderate heatwave exposure (around 30 °C days) and above it in the most exposed cells, as in the group's report; cells that were hot in the previous summer tend to have slightly lower biomass. Trawling effort shows no relationship in either area. None of this reproduces the annual dips of 2015 and 2018, consistent with the group's reading that, if heatwaves matter in the Adriatic, they act on the availability of red mullet to the summer survey across the whole area rather than through local losses. Curves are shown over the central 98% of the data.
+
+> **Discussion points.** (1) The group's report describes the annual series as covering GSA 17 only, but its values (6,934 t in 2015, 6,154 t in 2018) match the whole GSA 17-18 prediction grid; its heatwave file also counts the cells north of 45.0°N, which have no SST data, as having no heatwaves. (2) As the report notes, `epsilon_st` is a smoothed model output and cells are spatially dependent, so the GAM's p-values are not meaningful and are not shown. (3) A direct test is to add heatwave intensity, or a bottom temperature anomaly, as a covariate of the sdmTMB model fitted to the hauls. (4) Heatwaves are defined from sea surface temperature; red mullet lives on the bottom, where, especially in the stratified central Adriatic in summer, conditions can differ.
 
 ## 3. Marine heatwaves and fleet behaviour
 

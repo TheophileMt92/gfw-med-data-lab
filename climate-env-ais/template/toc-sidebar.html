@@ -192,7 +192,7 @@
   // Major sections (1, 2a, 2b, 2c, 3, ...) fold their subsections; a caret toggles them,
   // and the section being read opens automatically
   if (tocList) {
-    tocList.querySelectorAll(':scope > li').forEach(function (li) {
+    tocList.querySelectorAll('li').forEach(function (li) {
       if (!li.querySelector(':scope > ul')) return;
       li.classList.add('toc-collapsible');
       var btn = document.createElement('button');
@@ -266,13 +266,15 @@
     if (current) current.classList.remove('active');
     if (active) {
       active.classList.add('active');
-      var sec = active.closest('li.toc-collapsible');
-      if (sec && !sec.classList.contains('toc-open')) {
-        document.querySelectorAll('#TOC li.toc-collapsible.toc-open').forEach(function (o) {
-          if (o !== sec) o.classList.remove('toc-open');
-        });
-        sec.classList.add('toc-open');
+      // open the sections containing the active link (and the active section itself), close the others
+      var chain = [];
+      for (var el = active.parentElement; el && el !== toc; el = el.parentElement) {
+        if (el.classList && el.classList.contains('toc-collapsible')) chain.push(el);
       }
+      document.querySelectorAll('#TOC li.toc-collapsible.toc-open').forEach(function (o) {
+        if (chain.indexOf(o) < 0) o.classList.remove('toc-open');
+      });
+      chain.forEach(function (o) { o.classList.add('toc-open'); });
       if (wide.matches) {
         var t = active.offsetTop, h = active.offsetHeight;
         if (t < toc.scrollTop + 40) toc.scrollTop = t - 40;
