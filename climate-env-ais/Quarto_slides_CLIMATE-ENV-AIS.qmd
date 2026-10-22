@@ -248,6 +248,105 @@ Local correlation between red mullet and **GFW trawling effort**, by year
 :::
 ::::
 
+## Marine heatwaves in the two areas
+
+:::: {.columns}
+::: {.column width="62%"}
+![](figures/fig-grp-mhw-years-1.png){width="100%"}
+:::
+::: {.column width="38%"}
+Summer heatwaves (Hobday et al. 2016) computed on the prediction grid of each area
+
+- **GSA 6** strongest summers: **`r paste(sort(subset(k$grp_mhw_pick, region == "GSA 6" & class == "Strong MHW summer")$YEAR), collapse = ", ")`**
+- **Adriatic** strongest summers: **`r paste(sort(subset(k$grp_mhw_pick, region == "GSAs 17-18" & class == "Strong MHW summer")$YEAR), collapse = ", ")`**
+
+::: {.caveat}
+**Discussion point:** the two areas do not share their heatwave years (2020: strong in GSA 6, almost none in the Adriatic), so comparisons need area-specific years.
+:::
+:::
+::::
+
+## Heatwaves, biomass trends and trawling trends: GSA 6
+
+![](figures/fig-grp-trends-6-1.png){width="80%" fig-align="center"}
+
+[Trends 2014-2021 per cell, as % of the cell's mean per year; grey: not significant (p ≥ 0.05). Significant biomass trends: `r scales::percent(subset(k$grp_trend_sig, region == "GSA 6")$bio, 1)` of cells; none after correcting for multiple tests.]{.small .muted}
+
+## Heatwaves, biomass trends and trawling trends: Adriatic
+
+![](figures/fig-grp-trends-1718-1.png){width="86%" fig-align="center"}
+
+[Grey in A: no SST data north of 45°N. Significant biomass trends: `r scales::percent(subset(k$grp_trend_sig, region == "GSAs 17-18")$bio, 1)` of cells; none after correcting for multiple tests.]{.small .muted}
+
+## Trawling in strong and weak heatwave summers
+
+![](figures/fig-grp-fleet-1.png){width="80%" fig-align="center"}
+
+:::: {.columns}
+::: {.column width="50%"}
+- Daily GFW trawler effort, June-August, 3 strong vs 3 weak summers, **from 2015**
+:::
+::: {.column width="50%"}
+- Total hours: **`r subset(k$grp_fleet_tab, Area == "GSA 6" & Metric == "Total hours (thousands)")$Difference`** in GSA 6, **`r subset(k$grp_fleet_tab, Area == "GSAs 17-18" & Metric == "Total hours (thousands)")$Difference`** in the Adriatic, within year-to-year noise
+:::
+::::
+
+## Do the fleets fish the same grounds?
+
+:::: {.columns}
+::: {.column width="56%"}
+![](figures/fig-grp-core-1.png){width="100%"}
+
+[Core grounds (cells with 80% of hours): blue-grey in both types of summer, red strong only, dark blue weak only.]{.small .muted}
+:::
+::: {.column width="44%"}
+::: {.small}
+| | GSA 6 | Adriatic |
+|---|---|---|
+| Overlap D, strong vs weak | `r subset(k$grp_overlap_tab, Area == "GSA 6" & Pair == "Strong vs weak")[["Schoener's D"]]` | `r subset(k$grp_overlap_tab, Area == "GSAs 17-18" & Pair == "Strong vs weak")[["Schoener's D"]]` |
+| Overlap D, same type | `r paste(subset(k$grp_overlap_tab, Area == "GSA 6" & Pair != "Strong vs weak")[["Schoener's D"]], collapse = ", ")` | `r paste(subset(k$grp_overlap_tab, Area == "GSAs 17-18" & Pair != "Strong vs weak")[["Schoener's D"]], collapse = ", ")` |
+| Centre shift | `r subset(k$grp_overlap_tab, Area == "GSA 6" & Pair == "Strong vs weak")[["Centre-of-gravity shift (km)"]]` km | `r subset(k$grp_overlap_tab, Area == "GSAs 17-18" & Pair == "Strong vs weak")[["Centre-of-gravity shift (km)"]]` km |
+| Effort on red mullet hotspots | `r with(subset(k$grp_hab, region == "GSA 6"), paste(scales::percent(hot[class == "strong"], 1), "/", scales::percent(hot[class == "weak"], 1)))` | `r with(subset(k$grp_hab, region == "GSAs 17-18"), paste(scales::percent(hot[class == "strong"], 1), "/", scales::percent(hot[class == "weak"], 1)))` |
+:::
+
+**Same grounds** in strong and weak heatwave summers: overlap as high as between two summers of the same type (D: 1 = identical effort distribution).
+:::
+::::
+
+## Heatwaves and red mullet biomass across years
+
+![](figures/fig-grp-annual-1.png){width="72%" fig-align="center"}
+
+:::: {.columns}
+::: {.column width="34%" .small}
+**Adriatic:** biomass drops in the two strongest heatwave summers (2015, 2018), recovers the year after; overall ρ = `r round(subset(k$grp_annual_cor, region == "GSAs 17-18")$same, 2)`
+:::
+::: {.column width="30%" .small}
+**GSA 6:** the opposite, its strongest heatwave summers are among its higher-biomass years (ρ = `r round(subset(k$grp_annual_cor, region == "GSA 6")$same, 2)`)
+:::
+::: {.column width="36%"}
+::: {.caveat}
+**Discussion point:** eight years per area, two areas in opposite directions: a hypothesis to test, not a result.
+:::
+:::
+::::
+
+## Heatwaves and red mullet biomass within years
+
+:::: {.columns}
+::: {.column width="64%"}
+![](figures/fig-grp-rel-gam-1.png){width="100%"}
+:::
+::: {.column width="36%"}
+Year-specific deviation of predicted biomass (ε) in each cell, against heatwaves and trawling, with depth, latitude and year in the model
+
+- **GSA 6:** small effects
+- **Adriatic:** not monotonic, a dip at moderate heat, higher biomass in the hottest cells
+- **No trawling effect** in either area
+- Does not reproduce the annual dips
+:::
+::::
+
 ## Marine heatwaves and fleet behaviour
 
 :::: {.columns}
@@ -304,6 +403,7 @@ Mean of three 0-1 scores: **heatwave exposure + habitat loss + fishing pressure*
 - Check it against the observed MEDITS trend
 - Feed red mullet habitat change into the vulnerability index in place of total fish
 - Spatio-temporal model: index standard errors, cross-validation
+- Heatwaves: effort on heatwave days vs other days; heatwave intensity as a model covariate
 :::
 ::::
 

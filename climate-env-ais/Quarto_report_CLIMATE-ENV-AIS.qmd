@@ -1824,7 +1824,7 @@ ggplot(term_df, aes(x, fit, colour = region, fill = region)) +
 
 Within years, the relationships are small in GSA 6 and not monotonic in the Adriatic. There, with depth and latitude in the model, biomass is slightly below its usual level in cells with moderate heatwave exposure (around 30 °C days) and above it in the most exposed cells, as in the group's report; cells that were hot in the previous summer tend to have slightly lower biomass. Trawling effort shows no relationship in either area. None of this reproduces the annual dips of 2015 and 2018, consistent with the group's reading that, if heatwaves matter in the Adriatic, they act on the availability of red mullet to the summer survey across the whole area rather than through local losses. Curves are shown over the central 98% of the data.
 
-> **Discussion points.** (1) The group's report describes the annual series as covering GSA 17 only, but its values (6,934 t in 2015, 6,154 t in 2018) match the whole GSA 17-18 prediction grid; its heatwave file also counts the cells north of 45.0°N, which have no SST data, as having no heatwaves. (2) As the report notes, `epsilon_st` is a smoothed model output and cells are spatially dependent, so the GAM's p-values are not meaningful and are not shown. (3) A direct test is to add heatwave intensity, or a bottom temperature anomaly, as a covariate of the sdmTMB model fitted to the hauls. (4) Heatwaves are defined from sea surface temperature; red mullet lives on the bottom, where, especially in the stratified central Adriatic in summer, conditions can differ.
+> **Discussion points.** (1) As the group's report notes, `epsilon_st` is a smoothed model output and cells are spatially dependent, so the GAM's p-values are not meaningful and are not shown. (2) A direct test is to add heatwave intensity, or a bottom temperature anomaly, as a covariate of the sdmTMB model fitted to the hauls. (3) Heatwaves are defined from sea surface temperature; red mullet lives on the bottom, where, especially in the stratified central Adriatic in summer, conditions can differ.
 
 ## 3. Marine heatwaves and fleet behaviour
 
@@ -2159,6 +2159,19 @@ report_numbers <- list(
   grp_perc_med     = tapply(hsi_chg$perc, hsi_chg$region, median),
   grp_hsi_lower    = tapply(hsi_chg$diff < 0, hsi_chg$region, mean),
   grp_perc_max_6   = max(hsi_chg$perc[hsi_chg$region == "GSA 6"]),
+  grp_mhw_pick     = mhw_pick,
+  grp_trend_sig    = trend_g |> group_by(region) |>
+                       summarise(bio = mean(sig_bio), eff = mean(sig_eff),
+                                 bio_fdr = mean(p.adjust(p_bio, "BH") < 0.05), .groups = "drop"),
+  grp_fleet_tab    = fleet_tab2,
+  grp_overlap_tab  = overlap_tab,
+  grp_core_share   = core_share,
+  grp_hab          = hab_m,
+  grp_annual_cor   = annual_g |> group_by(region) |>
+                       summarise(same = cor(`Biomass index`, `MHW, same summer`, method = "spearman"),
+                                 prev = cor(`Biomass index`, `MHW, previous summer`, method = "spearman"),
+                                 eff = cor(`Biomass index`, `Trawling hours`, method = "spearman"), .groups = "drop"),
+  grp_annual       = annual_g,
   grp_fit_tab      = grp_fit_tab,
   grp_temp         = grp_temp,
   grp_cor          = setNames(grp_cor$r, grp_cor$region),
