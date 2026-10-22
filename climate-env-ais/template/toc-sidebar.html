@@ -77,6 +77,20 @@
   #TOC ul.toc-floats a b { color: var(--ocean-deep); font-weight: 600; }
   #TOC a b.toc-num { color: var(--ocean-deep); font-weight: 700; }
 
+  /* Collapsible major sections */
+  #TOC li.toc-collapsible { position: relative; }
+  #TOC li.toc-collapsible > a { padding-right: 1.6rem; }
+  #TOC li.toc-collapsible > ul { display: none; }
+  #TOC li.toc-collapsible.toc-open > ul { display: block; }
+  #TOC .toc-caret {
+    position: absolute; right: 0.2rem; top: 0.18rem;
+    width: 1.3rem; height: 1.3rem; padding: 0; border: none; background: none;
+    cursor: pointer; color: var(--text-secondary); font-size: 0.75rem; line-height: 1.3rem;
+    transition: transform 0.15s ease;
+  }
+  #TOC .toc-caret:hover { color: var(--accent); }
+  #TOC li.toc-open > .toc-caret { transform: rotate(90deg); }
+
   @media (max-width: 1199px) {
     #TOC ul ul { display: none; }
   }
@@ -175,6 +189,25 @@
     toc.insertBefore(gContents, tocList);
     gContents.appendChild(tocList);
   }
+  // Major sections (1, 2a, 2b, 2c, 3, ...) fold their subsections; a caret toggles them,
+  // and the section being read opens automatically
+  if (tocList) {
+    tocList.querySelectorAll(':scope > li').forEach(function (li) {
+      if (!li.querySelector(':scope > ul')) return;
+      li.classList.add('toc-collapsible');
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'toc-caret';
+      btn.textContent = '▸';
+      btn.setAttribute('aria-label', 'Show or hide subsections');
+      btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        li.classList.toggle('toc-open');
+        btn.setAttribute('aria-expanded', li.classList.contains('toc-open'));
+      });
+      li.insertBefore(btn, li.firstChild.nextSibling);
+    });
+  }
   function floatList(prefix, key, label) {
     var items = [];
     document.querySelectorAll('#report-main [id^="' + prefix + '"].quarto-float').forEach(function (el) {
@@ -233,6 +266,13 @@
     if (current) current.classList.remove('active');
     if (active) {
       active.classList.add('active');
+      var sec = active.closest('li.toc-collapsible');
+      if (sec && !sec.classList.contains('toc-open')) {
+        document.querySelectorAll('#TOC li.toc-collapsible.toc-open').forEach(function (o) {
+          if (o !== sec) o.classList.remove('toc-open');
+        });
+        sec.classList.add('toc-open');
+      }
       if (wide.matches) {
         var t = active.offsetTop, h = active.offsetHeight;
         if (t < toc.scrollTop + 40) toc.scrollTop = t - 40;
