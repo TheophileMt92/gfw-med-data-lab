@@ -1,0 +1,72 @@
+## How we worked {.workflow-slide}
+
+```{=html}
+<style>
+.wf { display: flex; align-items: stretch; justify-content: space-between; gap: 0; margin-top: 1.6em; }
+.wf-step { flex: 1 1 0; min-width: 0; box-sizing: border-box; display: flex; flex-direction: column; border-radius: 16px; padding: 0.9em 0.75em 1em; min-height: 11.5em;
+           background: #eef6fa; border: 2px solid #1a7fa8; text-align: left; }
+.wf-step.people { background: #fdf6e8; border-color: #e4b363; }
+.wf-step.web { background: #062d4a; border-color: #062d4a; color: #ffffff; }
+.wf-step.web .wf-sub { color: #c8eaf4; }
+.wf-num { font-size: 0.5em; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #1a7fa8; margin-bottom: 0.35em; }
+.wf-step.people .wf-num { color: #a87a1c; }
+.wf-step.web .wf-num { color: #4eb8d4; }
+.wf-title { font-size: 0.8em; font-weight: 700; line-height: 1.2; margin-bottom: 0.45em; color: #062d4a; }
+.wf-step.web .wf-title { color: #ffffff; }
+.wf-sub { font-size: 0.6em; line-height: 1.4; color: #3a4a5a; }
+.wf-arrow { flex: 0 0 1.5em; display: flex; align-items: center; justify-content: center; font-size: 1.1em; color: #1a7fa8; }
+.wf-loop { margin: 1em 1.5% 0 1.5%; border: 2px dashed #e4b363; border-top: none; border-radius: 0 0 14px 14px;
+           height: 1.1em; position: relative; }
+.wf-loop span { position: absolute; left: 50%; bottom: -0.75em; transform: translateX(-50%); background: #ffffff;
+                padding: 0 0.6em; font-size: 0.62em; color: #a87a1c; white-space: nowrap; }
+.wf-foot { margin-top: 2em; text-align: center; font-size: 0.8em; color: #062d4a; }
+.wf-foot b { color: #1a7fa8; }
+</style>
+
+<div class="wf">
+  <div class="wf-step people">
+    <div class="wf-num">1 · Working group</div>
+    <div class="wf-title">Scientists around a table</div>
+    <div class="wf-sub">The whole group or subgroups design and run the analyses together</div>
+  </div>
+  <div class="wf-arrow">➜</div>
+  <div class="wf-step people">
+    <div class="wf-num">2 · Google Drive</div>
+    <div class="wf-title">Shared analyses</div>
+    <div class="wf-sub">Scripts, data and figures are shared as they are produced</div>
+  </div>
+  <div class="wf-arrow">➜</div>
+  <div class="wf-step">
+    <div class="wf-num">3 · Curation</div>
+    <div class="wf-title">Read, clean, organise</div>
+    <div class="wf-sub">Théophile and Claude review the Drive, fix paths and code, reproduce results</div>
+  </div>
+  <div class="wf-arrow">➜</div>
+  <div class="wf-step">
+    <div class="wf-num">4 · GitHub</div>
+    <div class="wf-title">Commit and push</div>
+    <div class="wf-sub">Every change is versioned in one repository</div>
+  </div>
+  <div class="wf-arrow">➜</div>
+  <div class="wf-step">
+    <div class="wf-num">5 · Quarto report</div>
+    <div class="wf-title">Reproducible report</div>
+    <div class="wf-sub">Methods, results and discussion points; archives all the analyses</div>
+  </div>
+  <div class="wf-arrow">➜</div>
+  <div class="wf-step">
+    <div class="wf-num">6 · Quarto slides</div>
+    <div class="wf-title">This presentation</div>
+    <div class="wf-sub">Reads the report's figures and numbers, so it updates with it</div>
+  </div>
+  <div class="wf-arrow">➜</div>
+  <div class="wf-step web">
+    <div class="wf-num">7 · Online</div>
+    <div class="wf-title">Published</div>
+    <div class="wf-sub">Report, slides and code on GitHub Pages</div>
+  </div>
+</div>
+<div class="wf-loop"><span>Discussion points go back to the group for the next round of analyses</span></div>
+
+<div class="wf-foot">All analyses are <b>saved</b>, <b>archived</b>, <b>organised</b>, <b>committed</b>, <b>pushed</b> and <b>published online</b>.</div>
+```

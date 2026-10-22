@@ -41,6 +41,8 @@ pcs <- function(x, acc = 1) sub("^-", "−", scales::percent(x, accuracy = acc, 
 num <- function(x, acc = 1) scales::comma(x, accuracy = acc)
 ```
 
+{{< include template/_workflow-slide.qmd >}}
+
 ## Aims and data
 
 :::: {.columns}

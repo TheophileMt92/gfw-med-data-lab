@@ -46,6 +46,8 @@ mhw_top <- sort(k$mhw_cum, decreasing = TRUE)
 mhw_zero <- names(k$mhw_cum)[k$mhw_cum == 0]
 ```
 
+{{< include template/_workflow-slide.qmd >}}
+
 ## Data
 
 :::: {.columns}
