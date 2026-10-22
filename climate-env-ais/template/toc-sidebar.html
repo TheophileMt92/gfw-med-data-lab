@@ -75,6 +75,7 @@
   #TOC details.toc-group > summary .toc-count { font-weight: 400; letter-spacing: 0; text-transform: none; opacity: 0.75; }
   #TOC ul.toc-floats a { font-size: 0.8rem; padding-top: 0.15rem; padding-bottom: 0.15rem; }
   #TOC ul.toc-floats a b { color: var(--ocean-deep); font-weight: 600; }
+  #TOC a b.toc-num { color: var(--ocean-deep); font-weight: 700; }
 
   @media (max-width: 1199px) {
     #TOC ul ul { display: none; }
@@ -155,6 +156,17 @@
     d.addEventListener('toggle', function () { store('toc-' + key, d.open ? '1' : '0'); });
     return d;
   }
+  // Bold the section numbers (e.g. "2c.3") in the contents
+  links.forEach(function (a) {
+    var m = a.textContent.match(/^(\d+[a-z]?(?:\.\d+)*\.?)\s+(.*)$/);
+    if (!m) return;
+    a.textContent = '';
+    var b = document.createElement('b');
+    b.className = 'toc-num';
+    b.textContent = m[1];
+    a.appendChild(b);
+    a.appendChild(document.createTextNode(' ' + m[2]));
+  });
   var tocTitle = document.getElementById('toc-title');
   var tocList = toc.querySelector(':scope > ul');
   if (tocList) {
