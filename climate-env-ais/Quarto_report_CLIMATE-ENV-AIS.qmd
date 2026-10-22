@@ -1523,6 +1523,168 @@ lr_map <- function(reg, view) {
 
 There is no consistent difference in fleet behaviour between strong and weak heatwave summers in either area. Total trawling hours differ by `r fleet_tab2$Difference[fleet_tab2$Area == "GSA 6" & fleet_tab2$Metric == "Total hours (thousands)"]` in GSA 6 and `r fleet_tab2$Difference[fleet_tab2$Area == "GSAs 17-18" & fleet_tab2$Metric == "Total hours (thousands)"]` in the Adriatic, well within the spread between individual summers, and the number of vessels, the depth and distance to coast of fishing and the share of effort on the shelf barely change. The cell map shows a mosaic of local increases and decreases rather than a coherent shift. This contrasts with Section 3.2, where effort appeared higher in heatwave years: with the early, low-AIS years removed from the contrast, that difference disappears.
 
+#### 2c.11.1 Do strong and weak heatwave summers use the same fishing grounds?
+
+Similar totals could hide a move to other grounds. Three spatial measures test this on the 0.05° grid, for each pair of summers:
+
+- **Distribution overlap (Schoener's D):** D = 1 − ½ Σ |pᵢ − qᵢ|, where pᵢ and qᵢ are the shares of a summer's trawling hours in cell i. D = 1 when effort is spread identically over the cells, 0 when the two summers share no cell.
+- **Core grounds:** for each summer, the smallest set of cells holding 80% of its trawling hours. Their overlap between two summers is measured with the Jaccard index (cells core in both / cells core in either).
+- **Centre of gravity:** the effort-weighted mean position of trawling in each summer.
+
+If heatwaves move the fleet, overlap between a strong and a weak summer should be lower than between two summers of the same kind.
+
+```{r grp-overlap}
+#| code-summary: "Pairwise overlap of trawling between summers"
+#| cache: false
+
+fleet_y <- read.csv("outputs/fleet_MHW_cells_year.csv")
+yr_class <- distinct(fleet_y, region, year, class)
+
+core_cells <- function(d, share = 0.8) {
+  d <- arrange(d, desc(hours))
+  d[cumsum(d$hours) / sum(d$hours) <= share | seq_len(nrow(d)) == 1, c("Lon", "Lat")]
+}
+pair_overlap <- function(reg) {
+  d <- filter(fleet_y, region == reg)
+  yrs <- sort(unique(d$year))
+  bind_rows(lapply(combn(yrs, 2, simplify = FALSE), \(p) {
+    a <- filter(d, year == p[1]); b <- filter(d, year == p[2])
+    m <- full_join(a |> transmute(Lon, Lat, pa = hours / sum(hours)),
+                   b |> transmute(Lon, Lat, pb = hours / sum(hours)), by = c("Lon", "Lat")) |>
+      mutate(across(c(pa, pb), \(x) coalesce(x, 0)))
+    ca <- core_cells(a); cb <- core_cells(b)
+    tibble(region = reg, y1 = p[1], y2 = p[2],
+           D = 1 - 0.5 * sum(abs(m$pa - m$pb)),
+           jaccard = nrow(inner_join(ca, cb, by = c("Lon", "Lat"))) /
+             nrow(distinct(bind_rows(ca, cb))))
+  }))
+}
+overlap_g <- bind_rows(lapply(unique(fleet_y$region), pair_overlap)) |>
+  left_join(yr_class |> rename(y1 = year, c1 = class), by = c("region", "y1")) |>
+  left_join(yr_class |> rename(y2 = year, c2 = class), by = c("region", "y2")) |>
+  mutate(pair = case_when(c1 == c2 & c1 == "strong" ~ "Strong vs strong",
+                          c1 == c2 ~ "Weak vs weak", TRUE ~ "Strong vs weak"))
+
+# Centre of gravity per summer and its distance to the area's six-summer centre
+cog_g <- fleet_y |>
+  group_by(region, year, class) |>
+  summarise(lon = weighted.mean(Lon, hours), lat = weighted.mean(Lat, hours), .groups = "drop") |>
+  group_by(region) |>
+  mutate(shift_km = sqrt(((lon - mean(lon)) * 111.32 * cos(mean(lat) * pi / 180))^2 + ((lat - mean(lat)) * 110.57)^2)) |>
+  ungroup()
+```
+
+```{r fig-grp-overlap}
+#| fig-cap: "Overlap of trawling between every pair of summers, by area. Left: Schoener's D between effort distributions on the 0.05° grid (1 = identical). Right: Jaccard overlap of core grounds (cells holding 80% of each summer's hours). Bold years are strong heatwave summers. Pairs of a strong and a weak summer are outlined in black."
+#| fig-width: 11
+#| fig-height: 5.6
+
+ov_long <- bind_rows(overlap_g, overlap_g |> rename(y1 = y2, y2 = y1, c1 = c2, c2 = c1)) |>
+  pivot_longer(c(D, jaccard), names_to = "measure") |>
+  mutate(measure = recode(measure, D = "Schoener's D", jaccard = "Core grounds (Jaccard)"),
+         mixed = pair == "Strong vs weak")
+ov_plot <- function(reg) {
+  d <- filter(ov_long, region == reg)
+  strong <- sort(unique(d$y1[d$c1 == "strong"]))
+  lv <- c(sort(unique(d$y1[d$c1 == "weak"])), strong)
+  d <- mutate(d, y1 = factor(y1, lv), y2 = factor(y2, lv))
+  face <- ifelse(lv %in% strong, "bold", "plain")
+  ggplot(d, aes(y1, y2, fill = value)) +
+    geom_tile(colour = "white", linewidth = 0.6) +
+    geom_tile(data = filter(d, mixed), colour = "black", linewidth = 0.4, fill = NA) +
+    geom_text(aes(label = sprintf("%.2f", value)), size = 2.8) +
+    scale_fill_gradient(low = "white", high = pal_ocean[["surface"]], limits = c(0.4, 1), oob = squish, name = NULL) +
+    facet_wrap(~measure) + labs(title = reg, x = NULL, y = NULL) + theme_ocean(9) +
+    theme(axis.text.x = element_text(face = face), axis.text.y = element_text(face = face),
+          panel.grid = element_blank(), legend.position = "none")
+}
+ov_plot("GSA 6") / ov_plot("GSAs 17-18")
+```
+
+```{r tbl-grp-overlap}
+#| tbl-cap: "Mean overlap of trawling between summers, by type of pair. Area: GSA 6 or GSAs 17-18. Pair: two strong heatwave summers, two weak ones, or one of each. Pairs: number of pairs of summers. Schoener's D: mean overlap of the effort distributions (1 = identical). Core grounds (Jaccard): mean overlap of the cells holding 80% of each summer's hours. Centre-of-gravity shift (km), given in the strong vs weak row: distance between the mean centre of gravity of the strong summers and that of the weak summers."
+#| classes: tbl-compact
+
+cog_shift <- cog_g |>
+  group_by(region, class) |> summarise(lon = mean(lon), lat = mean(lat), .groups = "drop") |>
+  pivot_wider(names_from = class, values_from = c(lon, lat)) |>
+  mutate(shift = sqrt(((lon_strong - lon_weak) * 111.32 * cos(lat_weak * pi / 180))^2 +
+                        ((lat_strong - lat_weak) * 110.57)^2))
+overlap_tab <- overlap_g |>
+  group_by(Area = region, Pair = pair) |>
+  summarise(Pairs = n(), `Schoener's D` = round(mean(D), 2),
+            `Core grounds (Jaccard)` = round(mean(jaccard), 2), .groups = "drop") |>
+  left_join(cog_shift |> transmute(Area = region, Pair = "Strong vs weak", `Centre-of-gravity shift (km)` = round(shift, 1)),
+            by = c("Area", "Pair"))
+kable(overlap_tab |> mutate(`Centre-of-gravity shift (km)` = coalesce(as.character(`Centre-of-gravity shift (km)`), "")))
+```
+
+#### 2c.11.2 Overlap with red mullet habitat and with the heat
+
+The same yearly effort can be related to the two layers of Section 2c, cell by cell: the red mullet biomass predicted for that summer's year, and that summer's heatwave intensity (nearest prediction cell, for trawling within 5 km of the prediction grid: `r percent(with(filter(fleet_y, region == "GSA 6"), sum(hours[on_grid]) / sum(hours)), 1)` of the hours in GSA 6, where much trawling is deeper than the grid, and `r percent(with(filter(fleet_y, region == "GSAs 17-18"), sum(hours[on_grid]) / sum(hours)), 1)` in the Adriatic).
+
+```{r tbl-grp-habitat-overlap}
+#| tbl-cap: "Overlap of trawling with red mullet and with heatwaves, by area and type of summer (mean of three summers; trawling within 5 km of the prediction grid). Area: GSA 6 or GSAs 17-18. Summer: strong or weak heatwave summer. Effort in red mullet hotspots: share of trawling hours in the cells with the highest predicted red mullet biomass that year (top 25% of grid cells). Heatwave exposure ratio: mean heatwave intensity of the strong summers (cumulative, per cell) weighted by each summer's trawling hours, divided by its mean over all grid cells (above 1: trawling sits in the cells that get hotter in heatwave summers; below 1: in the cooler cells). The same heat map is used for both types of summer, so a lower ratio in strong summers than in weak ones would mean the fleet moves away from the heat."
+#| classes: tbl-compact
+
+# Heat map of the strong summers: mean cumulative intensity per 0.05° cell over the strong years
+strong_heat <- mhw_g |>
+  semi_join(yr_class |> filter(class == "strong"), by = c("region", YEAR = "year")) |>
+  mutate(Lon = floor(X / 0.05) * 0.05 + 0.025, Lat = floor(Y / 0.05) * 0.05 + 0.025) |>
+  group_by(region, Lon, Lat) |> summarise(heat = mean(mhw_cum_intensity, na.rm = TRUE), .groups = "drop") |>
+  filter(is.finite(heat)) |>
+  group_by(region) |> mutate(heat_area = mean(heat)) |> ungroup()
+
+hab_g <- fleet_y |>
+  filter(on_grid) |>
+  left_join(bind_rows(readRDS("data/group/pred_6.rds") |> mutate(region = "GSA 6"),
+                      readRDS("data/group/pred_1718.rds") |> mutate(region = "GSAs 17-18")) |>
+              group_by(region, year) |> summarise(q75 = quantile(dens, 0.75), .groups = "drop"),
+            by = c("region", "year")) |>
+  mutate(Lon = round(Lon, 3), Lat = round(Lat, 3)) |>
+  left_join(strong_heat |> mutate(Lon = round(Lon, 3), Lat = round(Lat, 3)), by = c("region", "Lon", "Lat")) |>
+  group_by(region, year, class) |>
+  summarise(hot_share = sum(hours[dens >= q75]) / sum(hours),
+            mhw_ratio = sum((heat * hours)[!is.na(heat)]) / sum(hours[!is.na(heat)]) / first(na.omit(heat_area)),
+            .groups = "drop")
+kable(hab_g |>
+        group_by(Area = region, Summer = recode(class, strong = "Strong MHW", weak = "Weak MHW")) |>
+        summarise(`Effort in red mullet hotspots` = percent(mean(hot_share), 1),
+                  `Heatwave exposure ratio` = sprintf("%.2f", mean(mhw_ratio)),
+                  .groups = "drop"))
+```
+
+```{r fig-grp-core}
+#| fig-cap: "Core trawling grounds (cells holding 80% of the mean summer hours) in strong and weak heatwave summers, on the 0.05° grid. Blue-grey: core in both; red: core only in strong heatwave summers; dark blue: core only in weak ones."
+#| fig-width: 11
+#| fig-height: 5.2
+
+core_class <- fleet_y |>
+  group_by(region, class, Lon, Lat) |> summarise(hours = sum(hours) / 3, .groups = "drop") |>
+  group_by(region, class) |> group_modify(~ core_cells(.x) |> mutate(core = TRUE)) |> ungroup() |>
+  pivot_wider(names_from = class, values_from = core, values_fill = FALSE) |>
+  mutate(status = case_when(strong & weak ~ "Core in both", strong ~ "Strong summers only", TRUE ~ "Weak summers only"),
+         status = factor(status, c("Core in both", "Strong summers only", "Weak summers only")))
+core_cols <- c(`Core in both` = "#9fb7c9", `Strong summers only` = pal_ocean[["alert"]], `Weak summers only` = pal_ocean[["deep"]])
+core_map <- function(reg, view) {
+  ggplot() + geom_tile(data = filter(core_class, region == reg), aes(Lon, Lat, fill = status), width = 0.05, height = 0.05) +
+    land + scale_fill_manual(values = core_cols, name = NULL, drop = FALSE) + view + labs(title = reg) + theme_map
+}
+(core_map("GSA 6", gsa6_view) | core_map("GSAs 17-18", adr_view)) +
+  plot_layout(guides = "collect") & theme(legend.position = "bottom")
+```
+
+```{r grp-overlap-nums}
+#| include: false
+ovn <- function(reg, pr, col) overlap_tab[[col]][overlap_tab$Area == reg & overlap_tab$Pair == pr]
+core_share <- core_class |> group_by(region) |> summarise(both = mean(status == "Core in both"))
+hab_m <- hab_g |> group_by(region, class) |> summarise(hot = mean(hot_share), ratio = mean(mhw_ratio), .groups = "drop")
+hab_txt <- function(reg) with(filter(hab_m, region == reg), sprintf("%s against %s", percent(hot[class == "strong"], 1), percent(hot[class == "weak"], 1)))
+exp_txt <- function(reg) with(filter(hab_m, region == reg), sprintf("%.2f against %.2f", ratio[class == "strong"], ratio[class == "weak"]))
+```
+
+The fleets fish the same grounds in strong and weak heatwave summers. In GSA 6, the overlap between a strong and a weak summer (D = `r ovn("GSA 6", "Strong vs weak", "Schoener's D")`) is as high as between two summers of the same kind (`r ovn("GSA 6", "Strong vs strong", "Schoener's D")` and `r ovn("GSA 6", "Weak vs weak", "Schoener's D")`), and the same holds in the Adriatic (`r ovn("GSAs 17-18", "Strong vs weak", "Schoener's D")` against `r ovn("GSAs 17-18", "Strong vs strong", "Schoener's D")` and `r ovn("GSAs 17-18", "Weak vs weak", "Schoener's D")`). The centre of gravity of trawling moves by `r ovn("GSA 6", "Strong vs weak", "Centre-of-gravity shift (km)")` km in GSA 6 and `r ovn("GSAs 17-18", "Strong vs weak", "Centre-of-gravity shift (km)")` km in the Adriatic between the two types of summer, and `r percent(core_share$both[1], 1)` and `r percent(core_share$both[2], 1)` of core cells are core in both. The cells that are core in only one type of summer are scattered along the edges of the main grounds, as expected from year-to-year variation. The share of effort on red mullet hotspots barely changes (`r hab_txt('GSA 6')` in GSA 6, `r hab_txt('GSAs 17-18')` in the Adriatic, strong against weak summers). Relative to where heatwaves strike, the fleet is not displaced either: the heatwave exposure ratio is `r exp_txt('GSA 6')` in GSA 6 and `r exp_txt('GSAs 17-18')` in the Adriatic (strong against weak summers). Ratios close to 1 in both types of summer mean that trawling is spread across hot and cool cells in proportion to the grid, and does not shift away from the cells that heat up most.
+
 > **Discussion points.** (1) With three summers per group, year-to-year differences that have nothing to do with heatwaves (fuel prices, closures, COVID-19 in 2020, a strong heatwave summer in GSA 6 and a weak one in the Adriatic) weigh as much as the heatwave contrast. (2) Summer-level metrics may hide short-term responses: heatwaves last days to weeks. A stronger design uses the daily data already downloaded, comparing effort on heatwave days and on other days of the same summers in the same cells. (3) Across all summers from 2015 to 2021, a regression of each fleet metric on the area's heatwave intensity would use all years instead of six. (4) Management measures that changed over the period, such as spatial closures, should be checked before reading local patches in the map as heatwave responses.
 
 ## 3. Marine heatwaves and fleet behaviour

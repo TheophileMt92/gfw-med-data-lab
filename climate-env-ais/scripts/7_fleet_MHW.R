@@ -108,3 +108,30 @@ cell_tab <- eff |>
   pivot_wider(names_from = class, values_from = hours, values_fill = 0) |>
   mutate(difference = strong - weak, log_ratio = log((strong + 1) / (weak + 1)))
 write.csv(cell_tab, "outputs/fleet_MHW_cells.csv", row.names = FALSE)
+
+# 6. Yearly 0.05° effort with the red mullet prediction and heatwave intensity of the nearest
+#    prediction cell, for the overlap analysis -----------------------------------------
+cell_year <- eff |>
+  mutate(Lon = floor(Lon / 0.05) * 0.05 + 0.025, Lat = floor(Lat / 0.05) * 0.05 + 0.025) |>
+  group_by(region, year, class, Lon, Lat) |>
+  summarise(hours = sum(hours), .groups = "drop")
+nearest_pred <- function(a) {
+  code <- areas[[a]]$code
+  pred <- readRDS(file.path("data/group", paste0("pred_", code, ".rds"))) |> select(X, Y, year, dens)
+  mhw  <- read.csv(file.path("outputs", paste0("MHW_grid_", code, ".csv"))) |>
+    select(X, Y, year = YEAR, mhw_cum = mhw_cum_intensity)
+  grid <- distinct(pred, X, Y)
+  cy <- filter(cell_year, region == a)
+  cc <- distinct(cy, Lon, Lat)
+  nn <- st_nearest_feature(st_as_sf(cc, coords = c("Lon", "Lat"), crs = 4326),
+                           st_as_sf(grid, coords = c("X", "Y"), crs = 4326))
+  d_km <- as.numeric(st_distance(st_as_sf(cc, coords = c("Lon", "Lat"), crs = 4326),
+                                 st_as_sf(grid[nn, ], coords = c("X", "Y"), crs = 4326), by_element = TRUE)) / 1000
+  cc <- cc |> mutate(X = grid$X[nn], Y = grid$Y[nn], on_grid = d_km < 5)   # within ~5 km of a prediction cell
+  cy |> left_join(cc, by = c("Lon", "Lat")) |>
+    left_join(pred, by = c("X", "Y", "year")) |>
+    left_join(mhw, by = c("X", "Y", "year")) |>
+    mutate(across(c(dens, mhw_cum), \(x) if_else(on_grid, x, NA_real_))) |>
+    select(-X, -Y)
+}
+write.csv(bind_rows(lapply(names(areas), nearest_pred)), "outputs/fleet_MHW_cells_year.csv", row.names = FALSE)
