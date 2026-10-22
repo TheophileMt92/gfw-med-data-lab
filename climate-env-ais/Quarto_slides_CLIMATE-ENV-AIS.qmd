@@ -70,26 +70,6 @@ haul_map(hauls_map)
 :::
 ::::
 
-## AIS coverage changes over time
-
-![](figures/fig-ais-ramp-1.png){width="82%" fig-align="center"}
-
-:::: {.columns}
-::: {.column width="33%"}
-[`r pc(k$ais_match_2012)` → `r pc(k$ais_match_2021)`]{.big-number}
-[hauls with matched AIS effort, 2012 → 2021]{.big-label}
-:::
-::: {.column width="33%"}
-[`r num(k$ais_hours_2012)` → `r num(k$ais_hours_2015)` h]{.big-number}
-[mean effort at matched hauls, 2012 → 2015]{.big-label}
-:::
-::: {.column width="34%"}
-::: {.caveat}
-The 2012-2014 rise reflects **AIS adoption**, not more fishing. Comparisons spanning these years partly measure AIS uptake: start in 2015 or use effort per vessel.
-:::
-:::
-::::
-
 ## Q1 · What drives where red mullet lives?
 
 :::: {.columns}
@@ -515,6 +495,26 @@ Mean of three 0-1 scores: **heatwave exposure + habitat loss + fishing pressure*
 - Pressure very skewed: median score `r num(k$cfvi_press_med, 0.01)`
 
 **Better:** 2015-2021 mean exposure, log effort, test the weights
+:::
+:::
+::::
+
+## AIS coverage changes over time
+
+![](figures/fig-ais-ramp-1.png){width="82%" fig-align="center"}
+
+:::: {.columns}
+::: {.column width="33%"}
+[`r pc(k$ais_match_2012)` → `r pc(k$ais_match_2021)`]{.big-number}
+[hauls with matched AIS effort, 2012 → 2021]{.big-label}
+:::
+::: {.column width="33%"}
+[`r num(k$ais_hours_2012)` → `r num(k$ais_hours_2015)` h]{.big-number}
+[mean effort at matched hauls, 2012 → 2015]{.big-label}
+:::
+::: {.column width="34%"}
+::: {.caveat}
+The 2012-2014 rise reflects **AIS adoption**, not more fishing. Comparisons spanning these years partly measure AIS uptake: start in 2015 or use effort per vessel.
 :::
 :::
 ::::
